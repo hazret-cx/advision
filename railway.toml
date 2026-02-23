@@ -1,0 +1,13 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npx playwright install --with-deps chromium && npm run build"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/api/campaign"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[service]
+internalPort = 3000
