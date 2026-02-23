@@ -7,6 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { createPage } = require('./browser');
 const { detectAdSlots, injectCreative } = require('./detector');
@@ -32,6 +33,12 @@ async function generateMockup(campaignId, url, creatives) {
     domain = new URL(url).hostname.replace('www.', '');
   } catch {
     domain = 'unknown';
+  }
+
+  // Delete old screenshot for the same campaign + URL before creating a new record
+  const existing = db.findExistingMockup(campaignId, url);
+  if (existing?.screenshot_path) {
+    await fs.promises.unlink(path.join(process.cwd(), existing.screenshot_path)).catch(() => {});
   }
 
   // Create mockup record
@@ -88,20 +95,28 @@ async function generateMockup(campaignId, url, creatives) {
     for (const match of matchReport.matched) {
       try {
         const creativePath = path.join(UPLOADS_DIR, match.creative.filename);
-        const imageBuffer = fs.readFileSync(creativePath);
-        const base64 = imageBuffer.toString('base64');
-        const mimeType = match.creative.mime_type || 'image/png';
-        const dataUrl = `data:${mimeType};base64,${base64}`;
 
-        await injectCreative(page, match.slot, dataUrl);
-        injectedCount++;
+        // Read file asynchronously, then pre-resize to fit inside the slot
+        const imageBuffer = await fs.promises.readFile(creativePath);
+        const resizedBuffer = await sharp(imageBuffer)
+          .resize(match.slot.width, match.slot.height, {
+            fit: 'inside',           // scale down proportionally
+            withoutEnlargement: true, // never upscale
+          })
+          .png()
+          .toBuffer();
+
+        const dataUrl = `data:image/png;base64,${resizedBuffer.toString('base64')}`;
+
+        const injected = await injectCreative(page, match.slot, dataUrl);
+        if (injected) injectedCount++;
 
         // Record slot match in DB
         db.addSlotMatch(
           uuidv4(), mockupId, match.creative.id,
           match.slot.selector, match.slot.x, match.slot.y,
           match.slot.width, match.slot.height,
-          true, true
+          true, injected, match.matchTier
         );
       } catch (err) {
         console.error(`Failed to inject creative into slot ${match.slot.selector}:`, err.message);
@@ -109,7 +124,7 @@ async function generateMockup(campaignId, url, creatives) {
           uuidv4(), mockupId, match.creative.id,
           match.slot.selector, match.slot.x, match.slot.y,
           match.slot.width, match.slot.height,
-          true, false
+          true, false, match.matchTier
         );
       }
     }
@@ -120,7 +135,7 @@ async function generateMockup(campaignId, url, creatives) {
         uuidv4(), mockupId, null,
         unmatched.slot.selector, unmatched.slot.x, unmatched.slot.y,
         unmatched.slot.width, unmatched.slot.height,
-        false, false
+        false, false, null
       );
     }
 

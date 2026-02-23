@@ -80,9 +80,9 @@ export default function MatchReport({ results }) {
                     {result.matchReport.matched.map((m, j) => (
                       <span
                         key={j}
-                        className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-medium"
+                        className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-medium flex items-center gap-1"
                       >
-                        {m.sizeKey} ✓
+                        {m.sizeKey} ✓ <TierBadge tier={m.matchTier} />
                       </span>
                     ))}
                   </div>
@@ -107,6 +107,31 @@ export default function MatchReport({ results }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function TierBadge({ tier }) {
+  if (!tier) return null;
+
+  const styles = {
+    exact: 'bg-green-200 text-green-800',
+    'aspect-ratio': 'bg-blue-100 text-blue-700',
+    'fit-within': 'bg-purple-100 text-purple-700',
+  };
+
+  const labels = {
+    exact: 'Exact',
+    'aspect-ratio': 'Aspect Ratio',
+    'fit-within': 'Fit Within',
+  };
+
+  const cls = styles[tier] || 'bg-gray-100 text-gray-600';
+  const label = labels[tier] || tier;
+
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
+      {label}
+    </span>
   );
 }
 

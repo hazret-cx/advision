@@ -64,6 +64,7 @@ function initTables(db) {
       slot_height INTEGER NOT NULL,
       matched INTEGER DEFAULT 0,
       injected INTEGER DEFAULT 0,
+      match_tier TEXT,
       FOREIGN KEY (mockup_id) REFERENCES mockups(id) ON DELETE CASCADE,
       FOREIGN KEY (creative_id) REFERENCES creatives(id) ON DELETE SET NULL
     );
@@ -73,6 +74,12 @@ function initTables(db) {
     CREATE INDEX IF NOT EXISTS idx_mockups_campaign ON mockups(campaign_id);
     CREATE INDEX IF NOT EXISTS idx_slot_matches_mockup ON slot_matches(mockup_id);
   `);
+
+  // Migration guard: add match_tier to existing databases that predate this column
+  const cols = db.prepare('PRAGMA table_info(slot_matches)').all();
+  if (!cols.some(c => c.name === 'match_tier')) {
+    db.exec('ALTER TABLE slot_matches ADD COLUMN match_tier TEXT');
+  }
 }
 
 // ─── Campaign queries ───────────────────────────────────────────────
@@ -141,14 +148,20 @@ function listMockups(campaignId) {
   return getDb().prepare('SELECT * FROM mockups WHERE campaign_id = ? ORDER BY created_at DESC').all(campaignId);
 }
 
+function findExistingMockup(campaignId, publisherUrl) {
+  return getDb().prepare(
+    'SELECT * FROM mockups WHERE campaign_id = ? AND publisher_url = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(campaignId, publisherUrl);
+}
+
 // ─── Slot match queries ─────────────────────────────────────────────
 
-function addSlotMatch(id, mockupId, creativeId, selector, x, y, width, height, matched, injected) {
+function addSlotMatch(id, mockupId, creativeId, selector, x, y, width, height, matched, injected, matchTier = null) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO slot_matches (id, mockup_id, creative_id, slot_selector, slot_x, slot_y, slot_width, slot_height, matched, injected)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, mockupId, creativeId, selector, x, y, width, height, matched ? 1 : 0, injected ? 1 : 0);
+    INSERT INTO slot_matches (id, mockup_id, creative_id, slot_selector, slot_x, slot_y, slot_width, slot_height, matched, injected, match_tier)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, mockupId, creativeId, selector, x, y, width, height, matched ? 1 : 0, injected ? 1 : 0, matchTier);
 }
 
 function getSlotMatches(mockupId) {
@@ -159,6 +172,6 @@ module.exports = {
   getDb,
   createCampaign, getCampaign, listCampaigns,
   addCreative, getCreative, listCreatives, getCreativesBySize,
-  createMockup, getMockup, updateMockup, listMockups,
+  createMockup, getMockup, updateMockup, listMockups, findExistingMockup,
   addSlotMatch, getSlotMatches,
 };

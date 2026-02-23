@@ -172,6 +172,7 @@ async function detectAdSlots(page, url) {
 
 /**
  * Attempt to dismiss common cookie/consent banners.
+ * Total time budget: 5s. Per-selector click timeout: 500ms.
  */
 async function dismissConsentBanners(page) {
   const consentSelectors = [
@@ -197,13 +198,17 @@ async function dismissConsentBanners(page) {
     'button:has-text("Allow All")',
   ];
 
+  const deadline = Date.now() + 5000; // 5s total budget
+
   for (const selector of consentSelectors) {
+    if (Date.now() >= deadline) break;
+
     try {
       const btn = await page.$(selector);
       if (btn) {
-        await btn.click({ timeout: 2000 });
+        await btn.click({ timeout: 500 });
         await page.waitForTimeout(500);
-        break;
+        break; // early-exit on first successful click
       }
     } catch {
       // ignore — move to next selector
@@ -213,12 +218,13 @@ async function dismissConsentBanners(page) {
 
 /**
  * Scroll through the page to trigger lazy-loaded ad slots.
+ * Scroll count is proportional to page height, capped at 20.
  */
 async function autoScroll(page) {
   await page.evaluate(async () => {
     const distance = 500;
     const delay = 200;
-    const maxScrolls = 15;
+    const maxScrolls = Math.min(20, Math.ceil(document.body.scrollHeight / 500));
 
     let scrolled = 0;
     while (scrolled < maxScrolls) {
@@ -237,13 +243,15 @@ async function autoScroll(page) {
 
 /**
  * Inject a creative image into a specific ad slot on the page.
+ * Uses a flex container with objectFit:contain to preserve aspect ratio.
  *
  * @param {import('playwright').Page} page
  * @param {Object} slot - Detected slot object
  * @param {string} imageDataUrl - Base64 data URL of the creative
+ * @returns {Promise<boolean>} Whether the injection succeeded
  */
 async function injectCreative(page, slot, imageDataUrl) {
-  await page.evaluate(({ selector, width, height, x, y, imageDataUrl }) => {
+  return page.evaluate(({ selector, width, height, x, y, imageDataUrl }) => {
     // Find the element — try by selector first, then by position
     let el = null;
     try {
@@ -269,22 +277,33 @@ async function injectCreative(page, slot, imageDataUrl) {
 
     if (!el) return false;
 
-    // Clear existing content and inject the creative
+    // Size the slot element and clear existing content
     el.innerHTML = '';
+    el.style.width = width + 'px';
+    el.style.height = height + 'px';
     el.style.overflow = 'hidden';
     el.style.position = el.style.position || 'relative';
 
+    // Flex container centres the creative without distorting it
+    const container = document.createElement('div');
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+
     const img = document.createElement('img');
     img.src = imageDataUrl;
-    img.style.width = width + 'px';
-    img.style.height = height + 'px';
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100%';
+    img.style.objectFit = 'contain';
     img.style.display = 'block';
-    img.style.objectFit = 'fill';
     img.style.border = 'none';
     img.style.margin = '0';
     img.style.padding = '0';
 
-    el.appendChild(img);
+    container.appendChild(img);
+    el.appendChild(container);
     return true;
   }, { selector: slot.selector, width: slot.width, height: slot.height, x: slot.x, y: slot.y, imageDataUrl });
 }
