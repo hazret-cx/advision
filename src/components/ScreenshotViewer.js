@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function ScreenshotViewer({ results, campaign }) {
+export default function ScreenshotViewer({ results, campaign, onEdit }) {
   const [selected, setSelected] = useState(0);
 
   if (!results || !results.results) return null;
@@ -25,6 +25,14 @@ export default function ScreenshotViewer({ results, campaign }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-[#1A1A2E]">Screenshots</h2>
         <div className="flex gap-2">
+          {onEdit && (
+            <button
+              onClick={() => onEdit(current)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+            >
+              <span>✏️</span> Edit Mockup
+            </button>
+          )}
           <a
             href={`/api/screenshot?path=${encodeURIComponent(current.screenshotPath)}`}
             download

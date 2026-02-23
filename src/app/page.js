@@ -6,6 +6,7 @@ import CreativeUploader from '../components/CreativeUploader';
 import UrlInput from '../components/UrlInput';
 import MatchReport from '../components/MatchReport';
 import ScreenshotViewer from '../components/ScreenshotViewer';
+import MockupEditor from '../components/MockupEditor';
 
 const STEPS = [
   { id: 1, label: 'Campaign', icon: '📁' },
@@ -21,6 +22,7 @@ export default function Home() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [editingMockup, setEditingMockup] = useState(null);
 
   const handleCampaignSelected = useCallback((c) => {
     setCampaign(c);
@@ -69,6 +71,21 @@ export default function Home() {
     setCreatives([]);
     setResults(null);
     setError(null);
+    setEditingMockup(null);
+  }, []);
+
+  const handleOpenEditor = useCallback((mockupResult) => {
+    setEditingMockup(mockupResult);
+  }, []);
+
+  const handleComposed = useCallback((mockupId, newScreenshotPath) => {
+    setResults(prev => ({
+      ...prev,
+      results: prev.results.map(r =>
+        r.mockupId === mockupId ? { ...r, screenshotPath: newScreenshotPath } : r
+      ),
+    }));
+    setEditingMockup(null);
   }, []);
 
   return (
@@ -154,10 +171,27 @@ export default function Home() {
         {step === 4 && results && (
           <div>
             <MatchReport results={results} />
-            <ScreenshotViewer results={results} campaign={campaign} />
+            <ScreenshotViewer
+              results={results}
+              campaign={campaign}
+              onEdit={handleOpenEditor}
+            />
           </div>
         )}
       </div>
+
+      {editingMockup && (
+        <MockupEditor
+          mockupId={editingMockup.mockupId}
+          screenshotPath={editingMockup.screenshotPath}
+          slots={editingMockup.slots || []}
+          creatives={creatives}
+          suggestedMatches={editingMockup.matchReport?.matched || []}
+          campaignId={campaign.id}
+          onComposed={(path) => handleComposed(editingMockup.mockupId, path)}
+          onClose={() => setEditingMockup(null)}
+        />
+      )}
     </div>
   );
 }

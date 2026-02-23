@@ -1,21 +1,19 @@
 /**
  * AdVision — Mockup Generator
  *
- * Orchestrates the full pipeline: load page → detect slots → match creatives →
- * inject creatives → capture screenshot. This is the main engine.
+ * Orchestrates the pipeline: load page → detect slots → match creatives →
+ * capture clean screenshot. Creatives are composited later via /api/compose.
  */
 
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { createPage } = require('./browser');
-const { detectAdSlots, injectCreative } = require('./detector');
+const { detectAdSlots } = require('./detector');
 const { matchSlots } = require('./matcher');
 const db = require('./db');
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'screenshots');
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 /**
  * Generate a mockup for a single publisher URL.
@@ -90,45 +88,16 @@ async function generateMockup(campaignId, url, creatives) {
     // 3. Match slots to creatives
     const matchReport = matchSlots(slots, creatives);
 
-    // 4. Inject matched creatives into the page
-    let injectedCount = 0;
+    // 4. Record slot matches in DB (no injection — compositing happens later via /api/compose)
     for (const match of matchReport.matched) {
-      try {
-        const creativePath = path.join(UPLOADS_DIR, match.creative.filename);
-
-        // Read file asynchronously, then pre-resize to fit inside the slot
-        const imageBuffer = await fs.promises.readFile(creativePath);
-        const resizedBuffer = await sharp(imageBuffer)
-          .resize(match.slot.width, match.slot.height, {
-            fit: 'inside',  // scale proportionally to fit within slot, no cropping
-          })
-          .png()
-          .toBuffer();
-
-        const dataUrl = `data:image/png;base64,${resizedBuffer.toString('base64')}`;
-
-        const injected = await injectCreative(page, match.slot, dataUrl);
-        if (injected) injectedCount++;
-
-        // Record slot match in DB
-        db.addSlotMatch(
-          uuidv4(), mockupId, match.creative.id,
-          match.slot.selector, match.slot.x, match.slot.y,
-          match.slot.width, match.slot.height,
-          true, injected, match.matchTier
-        );
-      } catch (err) {
-        console.error(`Failed to inject creative into slot ${match.slot.selector}:`, err.message);
-        db.addSlotMatch(
-          uuidv4(), mockupId, match.creative.id,
-          match.slot.selector, match.slot.x, match.slot.y,
-          match.slot.width, match.slot.height,
-          true, false, match.matchTier
-        );
-      }
+      db.addSlotMatch(
+        uuidv4(), mockupId, match.creative.id,
+        match.slot.selector, match.slot.x, match.slot.y,
+        match.slot.width, match.slot.height,
+        true, false, match.matchTier
+      );
     }
 
-    // Record unmatched slots
     for (const unmatched of matchReport.unmatchedSlots) {
       db.addSlotMatch(
         uuidv4(), mockupId, null,
@@ -138,10 +107,7 @@ async function generateMockup(campaignId, url, creatives) {
       );
     }
 
-    // Wait for injected images to render
-    await page.waitForTimeout(2000);
-
-    // 5. Capture screenshot
+    // 5. Capture clean screenshot (no creatives on the page)
     const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
 
     // Update mockup record
@@ -159,7 +125,6 @@ async function generateMockup(campaignId, url, creatives) {
       slots,
       matchReport,
       screenshotPath,
-      injectedCount,
       status: 'completed',
     };
 
