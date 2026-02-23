@@ -100,8 +100,7 @@ async function generateMockup(campaignId, url, creatives) {
         const imageBuffer = await fs.promises.readFile(creativePath);
         const resizedBuffer = await sharp(imageBuffer)
           .resize(match.slot.width, match.slot.height, {
-            fit: 'inside',           // scale down proportionally
-            withoutEnlargement: true, // never upscale
+            fit: 'inside',  // scale proportionally to fit within slot, no cropping
           })
           .png()
           .toBuffer();
@@ -140,7 +139,7 @@ async function generateMockup(campaignId, url, creatives) {
     }
 
     // Wait for injected images to render
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     // 5. Capture screenshot
     const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);

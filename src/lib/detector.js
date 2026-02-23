@@ -277,25 +277,33 @@ async function injectCreative(page, slot, imageDataUrl) {
 
     if (!el) return false;
 
-    // Size the slot element and clear existing content
+    // Pin slot element dimensions and force it visible above page content
     el.innerHTML = '';
     el.style.width = width + 'px';
     el.style.height = height + 'px';
+    el.style.minWidth = width + 'px';
+    el.style.minHeight = height + 'px';
     el.style.overflow = 'hidden';
-    el.style.position = el.style.position || 'relative';
+    el.style.position = 'relative';
+    el.style.display = 'block';
+    el.style.visibility = 'visible';
+    el.style.opacity = '1';
 
-    // Flex container centres the creative without distorting it
+    // Flex container — sits above page content, centres the creative
     const container = document.createElement('div');
     container.style.width = '100%';
     container.style.height = '100%';
     container.style.display = 'flex';
     container.style.alignItems = 'center';
     container.style.justifyContent = 'center';
+    container.style.position = 'relative';
+    container.style.zIndex = '999999';
 
+    // width/height 100% + objectFit:contain = fills the slot, preserves AR, never distorts
     const img = document.createElement('img');
     img.src = imageDataUrl;
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
+    img.style.width = '100%';
+    img.style.height = '100%';
     img.style.objectFit = 'contain';
     img.style.display = 'block';
     img.style.border = 'none';
