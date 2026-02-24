@@ -48,13 +48,17 @@ export default function MatchReport({ results }) {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="font-semibold text-[#1A1A2E] flex items-center gap-2">
-                  {result.status === 'completed' ? '✅' : '❌'}
+                  {result.status === 'completed' ? '✅' : result.status === 'blocked' ? '🚫' : '❌'}
                   {result.domain}
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5 truncate max-w-lg">{result.url}</div>
               </div>
               <StatusBadge status={result.status} />
             </div>
+
+            {result.brandSafety && result.brandSafety.action !== 'safe' && (
+              <BrandSafetyBanner safety={result.brandSafety} />
+            )}
 
             {result.status === 'error' ? (
               <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3">
@@ -153,8 +157,58 @@ function StatusBadge({ status }) {
   if (status === 'completed') {
     return <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>;
   }
+  if (status === 'blocked') {
+    return <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Brand Safety Block</span>;
+  }
   if (status === 'error') {
     return <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Error</span>;
   }
   return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">{status}</span>;
+}
+
+function BrandSafetyBanner({ safety }) {
+  const isBlock = safety.action === 'block';
+  const bg = isBlock ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';
+  const textColor = isBlock ? 'text-red-700' : 'text-amber-700';
+  const icon = isBlock ? '🚫' : '⚠️';
+  const label = isBlock ? 'Brand Safety Block' : 'Brand Safety Warning';
+
+  const blockViolations = safety.violations.filter(v => v.severity === 'block');
+  const warnViolations = safety.violations.filter(v => v.severity === 'warn');
+
+  return (
+    <div className={`rounded-lg border ${bg} p-3 mb-3`}>
+      <div className={`flex items-center gap-2 font-semibold text-sm ${textColor} mb-1`}>
+        <span>{icon}</span>
+        <span>{label}</span>
+      </div>
+      <p className={`text-xs ${textColor} mb-2`}>{safety.summary}</p>
+
+      {blockViolations.length > 0 && (
+        <div className="mb-1.5">
+          <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Blocked categories</span>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {blockViolations.map((v, i) => (
+              <span key={i} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                {v.category.replace(/_/g, ' ')} ({v.matchCount} matches)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {warnViolations.length > 0 && (
+        <div>
+          <span className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Flagged categories</span>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {warnViolations.map((v, i) => (
+              <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+                {v.category.replace(/_/g, ' ')} ({v.matchCount} matches)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

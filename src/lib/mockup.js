@@ -11,6 +11,7 @@ const { v4: uuidv4 } = require('uuid');
 const { createPage } = require('./browser');
 const { detectAdSlots } = require('./detector');
 const { matchSlots } = require('./matcher');
+const { checkPageSafety } = require('./brandSafety');
 const db = require('./db');
 
 const SCREENSHOTS_DIR = path.join(process.cwd(), 'screenshots');
@@ -51,6 +52,44 @@ async function generateMockup(campaignId, url, creatives) {
     // 2. Detect ad slots
     const slots = await detectAdSlots(page, url);
 
+    // 3. Brand safety check (page is already loaded — extract article text)
+    const pageText = await page.evaluate(() => {
+      const main = document.querySelector('article, main, [role="main"]');
+      return (main || document.body).innerText;
+    });
+
+    const campaign = db.getCampaign(campaignId);
+    const rules = campaign?.brand_safety_rules ? JSON.parse(campaign.brand_safety_rules) : null;
+    const safetyResult = rules?.enabled
+      ? checkPageSafety(pageText, rules)
+      : { safe: true, action: 'safe', violations: [], summary: 'Brand safety not configured.' };
+
+    db.updateMockup(mockupId, {
+      brand_safety_action: safetyResult.action,
+      brand_safety_result: JSON.stringify(safetyResult),
+    });
+
+    // Hard block — capture screenshot for reference but skip matching & injection
+    if (safetyResult.action === 'block') {
+      const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
+      db.updateMockup(mockupId, {
+        status: 'blocked',
+        slots_detected: slots.length,
+        slots_matched: 0,
+        screenshot_path: screenshotPath,
+      });
+      return {
+        mockupId,
+        url,
+        domain,
+        slots,
+        matchReport: null,
+        screenshotPath,
+        brandSafety: safetyResult,
+        status: 'blocked',
+      };
+    }
+
     if (slots.length === 0) {
       db.updateMockup(mockupId, {
         status: 'completed',
@@ -81,6 +120,7 @@ async function generateMockup(campaignId, url, creatives) {
           summary: `No ad slots detected on ${domain}. The page may block headless browsers or use non-standard ad containers.`,
         },
         screenshotPath,
+        brandSafety: safetyResult,
         status: 'completed',
       };
     }
@@ -125,6 +165,7 @@ async function generateMockup(campaignId, url, creatives) {
       slots,
       matchReport,
       screenshotPath,
+      brandSafety: safetyResult,
       status: 'completed',
     };
 

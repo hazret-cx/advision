@@ -21,6 +21,7 @@ function initTables(db) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       client_name TEXT NOT NULL,
+      brand_safety_rules TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -48,6 +49,8 @@ function initTables(db) {
       status TEXT DEFAULT 'pending',
       slots_detected INTEGER DEFAULT 0,
       slots_matched INTEGER DEFAULT 0,
+      brand_safety_action TEXT DEFAULT 'safe',
+      brand_safety_result TEXT,
       error_message TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
@@ -75,18 +78,35 @@ function initTables(db) {
     CREATE INDEX IF NOT EXISTS idx_slot_matches_mockup ON slot_matches(mockup_id);
   `);
 
-  // Migration guard: add match_tier to existing databases that predate this column
-  const cols = db.prepare('PRAGMA table_info(slot_matches)').all();
-  if (!cols.some(c => c.name === 'match_tier')) {
+  // Migration: match_tier on slot_matches
+  const slotCols = db.prepare('PRAGMA table_info(slot_matches)').all();
+  if (!slotCols.some(c => c.name === 'match_tier')) {
     db.exec('ALTER TABLE slot_matches ADD COLUMN match_tier TEXT');
+  }
+
+  // Migration: brand_safety_rules on campaigns
+  const campaignCols = db.prepare('PRAGMA table_info(campaigns)').all();
+  if (!campaignCols.some(c => c.name === 'brand_safety_rules')) {
+    db.exec('ALTER TABLE campaigns ADD COLUMN brand_safety_rules TEXT');
+  }
+
+  // Migration: brand safety result columns on mockups
+  const mockupCols = db.prepare('PRAGMA table_info(mockups)').all();
+  if (!mockupCols.some(c => c.name === 'brand_safety_action')) {
+    db.exec('ALTER TABLE mockups ADD COLUMN brand_safety_action TEXT DEFAULT \'safe\'');
+  }
+  if (!mockupCols.some(c => c.name === 'brand_safety_result')) {
+    db.exec('ALTER TABLE mockups ADD COLUMN brand_safety_result TEXT');
   }
 }
 
 // ─── Campaign queries ───────────────────────────────────────────────
 
-function createCampaign(id, name, clientName) {
+function createCampaign(id, name, clientName, brandSafetyRules = null) {
   const db = getDb();
-  db.prepare('INSERT INTO campaigns (id, name, client_name) VALUES (?, ?, ?)').run(id, name, clientName);
+  db.prepare('INSERT INTO campaigns (id, name, client_name, brand_safety_rules) VALUES (?, ?, ?, ?)').run(
+    id, name, clientName, brandSafetyRules ? JSON.stringify(brandSafetyRules) : null
+  );
   return getCampaign(id);
 }
 
