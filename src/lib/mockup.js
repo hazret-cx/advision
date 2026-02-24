@@ -52,16 +52,19 @@ async function generateMockup(campaignId, url, creatives) {
     // 2. Detect ad slots
     const slots = await detectAdSlots(page, url);
 
-    // 3. Brand safety check (page is already loaded — extract article text)
+    // 3. Brand safety check (page is already loaded — extract article text + image metadata)
     const pageText = await page.evaluate(() => {
       const main = document.querySelector('article, main, [role="main"]');
       return (main || document.body).innerText;
     });
 
+    const imageText = await extractImageText(page);
+    const combinedText = `${pageText} ${imageText}`;
+
     const campaign = db.getCampaign(campaignId);
     const rules = campaign?.brand_safety_rules ? JSON.parse(campaign.brand_safety_rules) : null;
     const safetyResult = rules?.enabled
-      ? checkPageSafety(pageText, rules)
+      ? checkPageSafety(combinedText, rules)
       : { safe: true, action: 'safe', violations: [], summary: 'Brand safety not configured.' };
 
     db.updateMockup(mockupId, {
@@ -185,6 +188,57 @@ async function generateMockup(campaignId, url, creatives) {
     };
   } finally {
     if (context) await context.close();
+  }
+}
+
+/**
+ * Extract brand-safety-relevant text from images on the page:
+ * - alt attributes (descriptive text set by the publisher)
+ * - src filenames (e.g. "toddler-playing.jpg" → "toddler playing")
+ * - data-src for lazy-loaded images
+ *
+ * Returns a single string that gets appended to page body text before
+ * the safety check runs. Failures are silently ignored — image metadata
+ * is best-effort.
+ */
+async function extractImageText(page) {
+  try {
+    return await page.evaluate(() => {
+      const parts = [];
+
+      document.querySelectorAll('img').forEach(img => {
+        // Alt text — most reliable signal
+        const alt = (img.alt || '').trim();
+        if (alt.length > 2) parts.push(alt);
+
+        // Filename from src or data-src
+        for (const attr of [img.src, img.dataset?.src, img.dataset?.lazySrc]) {
+          if (!attr) continue;
+          try {
+            const pathname = new URL(attr, window.location.href).pathname;
+            const filename = pathname.split('/').pop() || '';
+            // Strip extension, decode percent-encoding, normalise separators
+            const cleaned = decodeURIComponent(filename)
+              .replace(/\.[a-z]{2,5}$/i, '')   // remove .jpg, .webp, .jpeg etc.
+              .replace(/[-_+]/g, ' ')            // hyphens/underscores → spaces
+              .replace(/\d{4,}/g, '')            // strip long numeric ids
+              .trim();
+            if (cleaned.length > 3) parts.push(cleaned);
+          } catch {
+            // Invalid URL — skip
+          }
+          break; // only need one src per image
+        }
+
+        // title attribute as a fallback
+        const title = (img.title || '').trim();
+        if (title.length > 2) parts.push(title);
+      });
+
+      return parts.join(' ');
+    });
+  } catch {
+    return '';
   }
 }
 
