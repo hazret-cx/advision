@@ -46,33 +46,30 @@ async function generateMockup(campaignId, url, creatives) {
   let page, context;
 
   try {
-    // 1. Launch browser and load page
-    ({ page, context } = await createPage());
+    // 1. Launch browser + fetch page text for brand safety in parallel
+    // Brand safety uses a lightweight HTTP fetch — completely outside Playwright
+    // so it never blocks or slows the browser pipeline.
+    const [{ page: p, context: c }, safetyText] = await Promise.all([
+      createPage(),
+      fetchPageTextForSafety(url),
+    ]);
+    page = p;
+    context = c;
 
-    // 2. Detect ad slots
-    const slots = await detectAdSlots(page, url);
-
-    // 3. Brand safety check (page is already loaded — extract article text + image metadata)
-    const pageText = await page.evaluate(() => {
-      const el = document.querySelector('article, main, [role="main"]') || document.body;
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll('script, style, noscript, iframe').forEach(n => n.remove());
-      return clone.textContent.replace(/\s+/g, ' ').trim().slice(0, 50000);
-    });
-
-    const imageText = await extractImageText(page);
-    const combinedText = `${pageText} ${imageText}`;
-
+    // 2. Run brand safety check on the fetched text (pure JS, instant)
     const campaign = db.getCampaign(campaignId);
     const rules = campaign?.brand_safety_rules ? JSON.parse(campaign.brand_safety_rules) : null;
     const safetyResult = rules?.enabled
-      ? checkPageSafety(combinedText, rules)
+      ? checkPageSafety(safetyText, rules)
       : { safe: true, action: 'safe', violations: [], summary: 'Brand safety not configured.' };
 
     db.updateMockup(mockupId, {
       brand_safety_action: safetyResult.action,
       brand_safety_result: JSON.stringify(safetyResult),
     });
+
+    // 3. Detect ad slots
+    const slots = await detectAdSlots(page, url);
 
     // Hard block — capture screenshot for reference but skip matching & injection
     if (safetyResult.action === 'block') {
@@ -102,7 +99,6 @@ async function generateMockup(campaignId, url, creatives) {
         slots_matched: 0,
       });
 
-      // Still take a screenshot of the page
       const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
       db.updateMockup(mockupId, { screenshot_path: screenshotPath });
 
@@ -130,10 +126,10 @@ async function generateMockup(campaignId, url, creatives) {
       };
     }
 
-    // 3. Match slots to creatives
+    // 4. Match slots to creatives
     const matchReport = matchSlots(slots, creatives);
 
-    // 4. Record slot matches in DB (no injection — compositing happens later via /api/compose)
+    // 5. Record slot matches in DB
     for (const match of matchReport.matched) {
       db.addSlotMatch(
         uuidv4(), mockupId, match.creative.id,
@@ -152,7 +148,7 @@ async function generateMockup(campaignId, url, creatives) {
       );
     }
 
-    // 5. Capture clean screenshot (no creatives on the page)
+    // 6. Capture clean screenshot
     const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
 
     // Update mockup record
@@ -194,52 +190,35 @@ async function generateMockup(campaignId, url, creatives) {
 }
 
 /**
- * Extract brand-safety-relevant text from images on the page:
- * - alt attributes (descriptive text set by the publisher)
- * - src filenames (e.g. "toddler-playing.jpg" → "toddler playing")
- * - data-src for lazy-loaded images
- *
- * Returns a single string that gets appended to page body text before
- * the safety check runs. Failures are silently ignored — image metadata
- * is best-effort.
+ * Fetch plain text from a URL for brand safety analysis.
+ * Uses a lightweight Node.js fetch — completely outside Playwright,
+ * so it never adds time to the browser pipeline.
  */
-async function extractImageText(page) {
+async function fetchPageTextForSafety(url) {
   try {
-    return await page.evaluate(() => {
-      const parts = [];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
 
-      const imgs = Array.from(document.querySelectorAll('img')).slice(0, 150);
-      imgs.forEach(img => {
-        // Alt text — most reliable signal
-        const alt = (img.alt || '').trim();
-        if (alt.length > 2) parts.push(alt);
-
-        // Filename from src or data-src
-        for (const attr of [img.src, img.dataset?.src, img.dataset?.lazySrc]) {
-          if (!attr) continue;
-          try {
-            const pathname = new URL(attr, window.location.href).pathname;
-            const filename = pathname.split('/').pop() || '';
-            // Strip extension, decode percent-encoding, normalise separators
-            const cleaned = decodeURIComponent(filename)
-              .replace(/\.[a-z]{2,5}$/i, '')   // remove .jpg, .webp, .jpeg etc.
-              .replace(/[-_+]/g, ' ')            // hyphens/underscores → spaces
-              .replace(/\d{4,}/g, '')            // strip long numeric ids
-              .trim();
-            if (cleaned.length > 3) parts.push(cleaned);
-          } catch {
-            // Invalid URL — skip
-          }
-          break; // only need one src per image
-        }
-
-        // title attribute as a fallback
-        const title = (img.title || '').trim();
-        if (title.length > 2) parts.push(title);
-      });
-
-      return parts.join(' ');
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+      },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
+
+    const html = await res.text();
+
+    // Strip scripts, styles, tags — keep only visible text
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 50000);
   } catch {
     return '';
   }
