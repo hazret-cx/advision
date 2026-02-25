@@ -40,8 +40,9 @@ async function createPage() {
   const browser = await getBrowser();
   const context = await browser.newContext(CONTEXT_OPTIONS);
 
-  // Block heavy media to speed up page load (keep images for visual accuracy)
+  // Block heavy media and fonts to speed up page load (keep images for visual accuracy)
   await context.route('**/*.{mp4,webm,ogg,mp3,wav}', route => route.abort());
+  await context.route('**/*.{woff,woff2,ttf,otf,eot}', route => route.abort());
 
   const page = await context.newPage();
   return { page, context };

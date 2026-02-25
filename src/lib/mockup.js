@@ -259,13 +259,21 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
 
   // Scroll to top before capturing
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(300);
+
+  // Cap screenshot height — full-page capture of a long article can take 30s+.
+  // 5000px covers roughly 5 viewport heights, enough to show all above-the-fold
+  // and mid-page ad placements without stitching an entire article.
+  const MAX_SCREENSHOT_HEIGHT = 5000;
+  const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
 
   await page.screenshot({
     path: filepath,
-    fullPage: true,
     type: 'jpeg',
     quality: 85,
+    ...(pageHeight > MAX_SCREENSHOT_HEIGHT
+      ? { clip: { x: 0, y: 0, width: 1440, height: MAX_SCREENSHOT_HEIGHT } }
+      : { fullPage: true }),
   });
 
   // Return relative path for storage

@@ -152,17 +152,17 @@ async function detectAdSlots(page, url) {
 
   // Wait for ads to load (network idle + extra buffer)
   try {
-    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 4000 });
   } catch {
-    // networkidle timeout is fine — page may have persistent connections
+    // networkidle timeout is fine — heavy news sites have persistent ad connections
   }
 
   // Additional wait for async ad loading
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1500);
 
   // Scroll down to trigger lazy-loaded ads, then back to top
   await autoScroll(page);
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 
   // Run detection script
   const slots = await page.evaluate(buildDetectionScript());
@@ -224,7 +224,7 @@ async function autoScroll(page) {
   await page.evaluate(async () => {
     const distance = 500;
     const delay = 200;
-    const maxScrolls = Math.min(20, Math.ceil(document.body.scrollHeight / 500));
+    const maxScrolls = Math.min(10, Math.ceil(document.body.scrollHeight / 500));
 
     let scrolled = 0;
     while (scrolled < maxScrolls) {
