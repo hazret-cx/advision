@@ -161,16 +161,11 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(300);
 
-  const MAX_SCREENSHOT_HEIGHT = 5000;
-  const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-
   await page.screenshot({
     path: filepath,
+    fullPage: true,
     type: 'jpeg',
     quality: 85,
-    ...(pageHeight > MAX_SCREENSHOT_HEIGHT
-      ? { clip: { x: 0, y: 0, width: 1440, height: MAX_SCREENSHOT_HEIGHT } }
-      : { fullPage: true }),
   });
 
   return path.relative(process.cwd(), filepath);
