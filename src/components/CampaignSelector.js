@@ -7,21 +7,7 @@ export default function CampaignSelector({ onSelect }) {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [clientName, setClientName] = useState('');
-  const [brandSafetyProfile, setBrandSafetyProfile] = useState('none');
-  const [customKeywords, setCustomKeywords] = useState('');
-  const [brandSafetyAction, setBrandSafetyAction] = useState('warn');
   const [creating, setCreating] = useState(false);
-
-  const PROFILES = [
-    { value: 'none',                label: 'No brand safety rules' },
-    { value: 'pmi_tobacco',         label: 'PMI / Tobacco' },
-    { value: 'alcohol',             label: 'Alcohol' },
-    { value: 'gambling',            label: 'Gambling / Betting' },
-    { value: 'financial_services',  label: 'Financial Services' },
-    { value: 'healthcare_pharma',   label: 'Healthcare / Pharma' },
-    { value: 'childrens_products',  label: "Children's Products / Education" },
-    { value: 'luxury',              label: 'Luxury / Premium' },
-  ];
 
   useEffect(() => {
     fetchCampaigns();
@@ -47,12 +33,9 @@ export default function CampaignSelector({ onSelect }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-        name: name.trim(),
-        clientName: clientName.trim(),
-        brandSafetyProfile,
-        customKeywords: customKeywords.split(',').map(k => k.trim()).filter(Boolean),
-        brandSafetyAction,
-      }),
+          name: name.trim(),
+          clientName: clientName.trim(),
+        }),
       });
       const data = await res.json();
       if (data.campaign) {
@@ -136,61 +119,6 @@ export default function CampaignSelector({ onSelect }) {
               />
             </div>
           </div>
-          {/* Brand Safety */}
-          <div className="border-t border-gray-100 pt-4 mt-2">
-            <label className="block text-sm font-medium text-gray-600 mb-1">
-              Brand Safety Profile
-            </label>
-            <select
-              value={brandSafetyProfile}
-              onChange={e => setBrandSafetyProfile(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00B4D8] focus:ring-1 focus:ring-[#00B4D8]/20 mb-3 text-sm"
-            >
-              {PROFILES.map(p => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-
-            {brandSafetyProfile !== 'none' && (
-              <>
-                <div className="flex gap-3 mb-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="warn"
-                      checked={brandSafetyAction === 'warn'}
-                      onChange={() => setBrandSafetyAction('warn')}
-                      className="accent-[#00B4D8]"
-                    />
-                    <span><strong>Warn</strong> — flag unsafe pages, still generate mockup</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="block"
-                      checked={brandSafetyAction === 'block'}
-                      onChange={() => setBrandSafetyAction('block')}
-                      className="accent-[#00B4D8]"
-                    />
-                    <span><strong>Block</strong> — skip unsafe pages entirely</span>
-                  </label>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Custom keywords to flag <span className="font-normal text-gray-400">(comma-separated, optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={customKeywords}
-                    onChange={e => setCustomKeywords(e.target.value)}
-                    placeholder="e.g. competitor name, specific topic"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00B4D8] focus:ring-1 focus:ring-[#00B4D8]/20 text-sm"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
           <div className="flex gap-3 mt-4">
             <button
               type="submit"
