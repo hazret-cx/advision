@@ -46,51 +46,55 @@ async function generateMockup(campaignId, url, creatives) {
   let page, context;
 
   try {
-    // 1. Launch browser + fetch page text for brand safety in parallel
-    // Brand safety uses a lightweight HTTP fetch — completely outside Playwright
-    // so it never blocks or slows the browser pipeline.
-    const [{ page: p, context: c }, safetyText] = await Promise.all([
-      createPage(),
-      fetchPageTextForSafety(url),
-    ]);
-    page = p;
-    context = c;
-
-    // 2. Run brand safety check on the fetched text (pure JS, instant)
+    // 1. Evaluate brand safety first, before browser work.
+    // This keeps screenshot generation fast when brand safety is disabled,
+    // and avoids expensive page automation for hard-blocked URLs.
     const campaign = db.getCampaign(campaignId);
-    const rules = campaign?.brand_safety_rules ? JSON.parse(campaign.brand_safety_rules) : null;
-    const safetyResult = rules?.enabled
-      ? checkPageSafety(safetyText, rules)
-      : { safe: true, action: 'safe', violations: [], summary: 'Brand safety not configured.' };
+    let rules = null;
+    if (campaign?.brand_safety_rules) {
+      try {
+        rules = JSON.parse(campaign.brand_safety_rules);
+      } catch {
+        rules = null;
+      }
+    }
+    const safetyResult = { safe: true, action: 'safe', violations: [], summary: 'Brand safety not configured.' };
+    if (rules?.enabled) {
+      const safetyText = await fetchPageTextForSafety(url);
+      Object.assign(safetyResult, checkPageSafety(safetyText, rules));
+    }
 
     db.updateMockup(mockupId, {
       brand_safety_action: safetyResult.action,
       brand_safety_result: JSON.stringify(safetyResult),
     });
 
-    // 3. Detect ad slots
-    const slots = await detectAdSlots(page, url);
-
-    // Hard block — capture screenshot for reference but skip matching & injection
+    // Hard block — skip browser, slot detection, and screenshot entirely
     if (safetyResult.action === 'block') {
-      const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
       db.updateMockup(mockupId, {
         status: 'blocked',
-        slots_detected: slots.length,
+        slots_detected: 0,
         slots_matched: 0,
-        screenshot_path: screenshotPath,
       });
       return {
         mockupId,
         url,
         domain,
-        slots,
+        slots: [],
         matchReport: null,
-        screenshotPath,
+        screenshotPath: null,
         brandSafety: safetyResult,
         status: 'blocked',
       };
     }
+
+    // 2. Launch browser only when the URL is allowed to proceed
+    const pageCtx = await createPage();
+    page = pageCtx.page;
+    context = pageCtx.context;
+
+    // 3. Detect ad slots
+    const slots = await detectAdSlots(page, url);
 
     if (slots.length === 0) {
       db.updateMockup(mockupId, {
