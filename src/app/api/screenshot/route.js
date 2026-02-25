@@ -24,9 +24,11 @@ export async function GET(request) {
     }
 
     const buffer = fs.readFileSync(fullPath);
+    const ext = path.extname(fullPath).toLowerCase();
+    const contentType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
     return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'image/png',
+        'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${path.basename(fullPath)}"`,
         'Cache-Control': 'public, max-age=3600',
       },

@@ -55,7 +55,7 @@ async function generateMockup(campaignId, url, creatives) {
     // 3. Brand safety check (page is already loaded — extract article text + image metadata)
     const pageText = await page.evaluate(() => {
       const main = document.querySelector('article, main, [role="main"]');
-      return (main || document.body).innerText;
+      return (main || document.body).textContent;
     });
 
     const imageText = await extractImageText(page);
@@ -206,7 +206,8 @@ async function extractImageText(page) {
     return await page.evaluate(() => {
       const parts = [];
 
-      document.querySelectorAll('img').forEach(img => {
+      const imgs = Array.from(document.querySelectorAll('img')).slice(0, 150);
+      imgs.forEach(img => {
         // Alt text — most reliable signal
         const alt = (img.alt || '').trim();
         if (alt.length > 2) parts.push(alt);
@@ -253,7 +254,7 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   }
 
   const timestamp = new Date().toISOString().slice(0, 10);
-  const filename = `${domain}_${timestamp}_${mockupId.slice(0, 8)}.png`;
+  const filename = `${domain}_${timestamp}_${mockupId.slice(0, 8)}.jpg`;
   const filepath = path.join(campaignDir, filename);
 
   // Scroll to top before capturing
@@ -263,7 +264,8 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   await page.screenshot({
     path: filepath,
     fullPage: true,
-    type: 'png',
+    type: 'jpeg',
+    quality: 85,
   });
 
   // Return relative path for storage
