@@ -54,8 +54,10 @@ async function generateMockup(campaignId, url, creatives) {
 
     // 3. Brand safety check (page is already loaded — extract article text + image metadata)
     const pageText = await page.evaluate(() => {
-      const main = document.querySelector('article, main, [role="main"]');
-      return (main || document.body).textContent;
+      const el = document.querySelector('article, main, [role="main"]') || document.body;
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll('script, style, noscript, iframe').forEach(n => n.remove());
+      return clone.textContent.replace(/\s+/g, ' ').trim().slice(0, 50000);
     });
 
     const imageText = await extractImageText(page);
