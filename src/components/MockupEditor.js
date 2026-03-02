@@ -19,7 +19,15 @@ export default function MockupEditor({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
   const [containerWidth, setContainerWidth] = useState(900);
+
+  // Erase tool state
+  const [eraseMode, setEraseMode] = useState(false);
+  const [erasures, setErasures] = useState([]);
+  const [dragStart, setDragStart] = useState(null);
+  const [drawingRect, setDrawingRect] = useState(null);
+
   const containerRef = useRef(null);
+  const imageWrapperRef = useRef(null);
 
   // Pre-populate placements from suggested matches
   useEffect(() => {
@@ -54,8 +62,9 @@ export default function MockupEditor({
   const scale = containerWidth / 1440;
 
   const handleSlotClick = useCallback((idx) => {
+    if (eraseMode) return;
     setActiveSlot(idx);
-  }, []);
+  }, [eraseMode]);
 
   const handleCreativeClick = useCallback(
     (creative) => {
@@ -94,6 +103,74 @@ export default function MockupEditor({
     setActiveSlot(null);
   }, []);
 
+  // ── Erase tool ────────────────────────────────────────────────────────────
+
+  const toggleEraseMode = useCallback(() => {
+    setEraseMode((m) => !m);
+    setActiveSlot(null);
+    setDragStart(null);
+    setDrawingRect(null);
+  }, []);
+
+  const handleRemoveErasure = useCallback((idx, e) => {
+    e.stopPropagation();
+    setErasures((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const handleClearErasures = useCallback(() => {
+    setErasures([]);
+  }, []);
+
+  const getImageWrapperOffset = useCallback(() => {
+    if (!imageWrapperRef.current) return { left: 0, top: 0 };
+    const rect = imageWrapperRef.current.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
+  }, []);
+
+  const handleMouseDown = useCallback((e) => {
+    if (!eraseMode) return;
+    e.preventDefault();
+    const { left, top } = getImageWrapperOffset();
+    setDragStart({ x: e.clientX - left, y: e.clientY - top });
+    setDrawingRect(null);
+  }, [eraseMode, getImageWrapperOffset]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!eraseMode || !dragStart) return;
+    const { left, top } = getImageWrapperOffset();
+    const cx = e.clientX - left;
+    const cy = e.clientY - top;
+    setDrawingRect({
+      left: Math.min(dragStart.x, cx),
+      top: Math.min(dragStart.y, cy),
+      width: Math.abs(cx - dragStart.x),
+      height: Math.abs(cy - dragStart.y),
+    });
+  }, [eraseMode, dragStart, getImageWrapperOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!eraseMode || !dragStart || !drawingRect) {
+      setDragStart(null);
+      setDrawingRect(null);
+      return;
+    }
+    if (drawingRect.width > 10 && drawingRect.height > 10) {
+      setErasures((prev) => [
+        ...prev,
+        {
+          x: Math.round(drawingRect.left / scale),
+          y: Math.round(drawingRect.top / scale),
+          width: Math.round(drawingRect.width / scale),
+          height: Math.round(drawingRect.height / scale),
+        },
+      ]);
+    }
+    setDragStart(null);
+    setDrawingRect(null);
+  }, [eraseMode, dragStart, drawingRect, scale]);
+
+  // ── Export ────────────────────────────────────────────────────────────────
+
   const handleExport = useCallback(async () => {
     const placementArray = Object.entries(placements).map(([idx, p]) => {
       const slot = slots[parseInt(idx)];
@@ -107,8 +184,8 @@ export default function MockupEditor({
       };
     });
 
-    if (placementArray.length === 0) {
-      setExportError('Assign at least one creative to a slot before exporting.');
+    if (placementArray.length === 0 && erasures.length === 0) {
+      setExportError('Assign at least one creative or draw an erasure before exporting.');
       return;
     }
 
@@ -119,7 +196,7 @@ export default function MockupEditor({
       const res = await fetch('/api/compose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mockupId, screenshotPath, placements: placementArray }),
+        body: JSON.stringify({ mockupId, screenshotPath, placements: placementArray, erasures }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Compose failed');
@@ -128,7 +205,7 @@ export default function MockupEditor({
       setExportError(err.message);
       setExporting(false);
     }
-  }, [placements, slots, mockupId, screenshotPath, onComposed]);
+  }, [placements, slots, mockupId, screenshotPath, erasures, onComposed]);
 
   const creativeById = Object.fromEntries(creatives.map((c) => [c.id, c]));
   const activePlacement = activeSlot !== null ? placements[activeSlot] : null;
@@ -154,11 +231,32 @@ export default function MockupEditor({
           background: '#1A1A2E',
           borderBottom: '1px solid #2a2a4a',
           flexShrink: 0,
+          gap: 12,
         }}
       >
         <span style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>
           Edit Mockup
         </span>
+
+        {/* Erase mode toggle */}
+        <button
+          onClick={toggleEraseMode}
+          title="Draw rectangles to paint out overlays / paywalls"
+          style={{
+            padding: '5px 14px',
+            borderRadius: 6,
+            border: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: 12,
+            background: eraseMode ? '#ef4444' : '#2a2a4a',
+            color: eraseMode ? '#fff' : '#aaa',
+            transition: 'background 0.15s',
+          }}
+        >
+          {eraseMode ? '✕ Stop Erasing' : '⬜ Erase Overlay'}
+        </button>
+
         <button
           onClick={onClose}
           style={{
@@ -168,6 +266,7 @@ export default function MockupEditor({
             fontSize: 20,
             cursor: 'pointer',
             lineHeight: 1,
+            marginLeft: 'auto',
           }}
         >
           ✕
@@ -176,7 +275,7 @@ export default function MockupEditor({
 
       {/* Body */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left: screenshot + slot overlays */}
+        {/* Left: screenshot + overlays */}
         <div
           ref={containerRef}
           style={{
@@ -184,9 +283,18 @@ export default function MockupEditor({
             overflow: 'auto',
             padding: 16,
             position: 'relative',
+            cursor: eraseMode ? 'crosshair' : 'default',
+            userSelect: eraseMode ? 'none' : 'auto',
           }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
-          <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+          <div
+            ref={imageWrapperRef}
+            style={{ position: 'relative', display: 'inline-block', width: '100%' }}
+            onMouseDown={handleMouseDown}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/screenshot?path=${encodeURIComponent(screenshotPath)}`}
@@ -195,8 +303,8 @@ export default function MockupEditor({
               draggable={false}
             />
 
-            {/* Slot overlays */}
-            {slots.map((slot, idx) => {
+            {/* Ad slot overlays (hidden while erasing to avoid click conflicts) */}
+            {!eraseMode && slots.map((slot, idx) => {
               const placement = placements[idx];
               const isActive = activeSlot === idx;
               const assigned = !!placement;
@@ -232,11 +340,12 @@ export default function MockupEditor({
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: placement.fitMode === 'fill'
-                            ? 'fill'
-                            : placement.fitMode === 'cover'
-                            ? 'cover'
-                            : 'contain',
+                          objectFit:
+                            placement.fitMode === 'fill'
+                              ? 'fill'
+                              : placement.fitMode === 'cover'
+                              ? 'cover'
+                              : 'contain',
                           display: 'block',
                         }}
                         draggable={false}
@@ -289,9 +398,7 @@ export default function MockupEditor({
                         padding: 2,
                       }}
                     >
-                      <div>
-                        {slot.width}×{slot.height}
-                      </div>
+                      <div>{slot.width}×{slot.height}</div>
                       <div style={{ fontSize: Math.max(8, 10 * scale), marginTop: 1 }}>
                         click to add
                       </div>
@@ -300,10 +407,66 @@ export default function MockupEditor({
                 </div>
               );
             })}
+
+            {/* Committed erasure regions */}
+            {erasures.map((erasure, idx) => (
+              <div
+                key={`erasure-${idx}`}
+                style={{
+                  position: 'absolute',
+                  left: erasure.x * scale,
+                  top: erasure.y * scale,
+                  width: erasure.width * scale,
+                  height: erasure.height * scale,
+                  background: 'rgba(255,255,255,0.88)',
+                  border: '2px dashed #ef4444',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: eraseMode ? 'none' : 'auto',
+                }}
+              >
+                {!eraseMode && (
+                  <button
+                    onClick={(e) => handleRemoveErasure(idx, e)}
+                    style={{
+                      background: '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '3px 10px',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✕ Remove
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Live drawing preview */}
+            {drawingRect && drawingRect.width > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: drawingRect.left,
+                  top: drawingRect.top,
+                  width: drawingRect.width,
+                  height: drawingRect.height,
+                  background: 'rgba(239,68,68,0.18)',
+                  border: '2px dashed #ef4444',
+                  boxSizing: 'border-box',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
           </div>
         </div>
 
-        {/* Right: creatives panel */}
+        {/* Right panel */}
         <div
           style={{
             width: 220,
@@ -325,13 +488,60 @@ export default function MockupEditor({
               flexShrink: 0,
             }}
           >
-            {activeSlot !== null
+            {eraseMode
+              ? 'Erase Overlay'
+              : activeSlot !== null
               ? `Slot ${activeSlot + 1} — ${slots[activeSlot].width}×${slots[activeSlot].height}`
               : 'Creatives'}
           </div>
 
-          {/* Fit mode buttons (shown when a slot is active) */}
-          {activeSlot !== null && (
+          {/* Erase mode instructions */}
+          {eraseMode && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 14, gap: 12 }}>
+              <p style={{ color: '#aaa', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+                Click and drag on the screenshot to draw a white rectangle over any overlay, paywall, or cookie banner blocking the content.
+              </p>
+              <p style={{ color: '#666', fontSize: 11, lineHeight: 1.5, margin: 0 }}>
+                {erasures.length === 0
+                  ? 'No erasures drawn yet.'
+                  : `${erasures.length} erasure${erasures.length > 1 ? 's' : ''} drawn.`}
+              </p>
+              {erasures.length > 0 && (
+                <button
+                  onClick={handleClearErasures}
+                  style={{
+                    background: '#2a1010',
+                    color: '#f87171',
+                    border: '1px solid #5a1010',
+                    borderRadius: 5,
+                    padding: '6px 0',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Clear All Erasures
+                </button>
+              )}
+              <button
+                onClick={toggleEraseMode}
+                style={{
+                  background: '#2a2a4a',
+                  color: '#ccc',
+                  border: 'none',
+                  borderRadius: 5,
+                  padding: '6px 0',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                Done — Back to Slots
+              </button>
+            </div>
+          )}
+
+          {/* Fit mode buttons */}
+          {!eraseMode && activeSlot !== null && (
             <div
               style={{
                 display: 'flex',
@@ -365,59 +575,61 @@ export default function MockupEditor({
           )}
 
           {/* Creative thumbnails */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
-            {activeSlot !== null ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {creatives.map((creative) => (
-                  <button
-                    key={creative.id}
-                    onClick={() => handleCreativeClick(creative)}
-                    style={{
-                      background: '#1e1e38',
-                      border:
-                        activePlacement?.creativeId === creative.id
-                          ? '2px solid #00B4D8'
-                          : '2px solid #2a2a4a',
-                      borderRadius: 6,
-                      padding: 6,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/creative-image?id=${encodeURIComponent(creative.filename)}`}
-                      alt={creative.original_name}
+          {!eraseMode && (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
+              {activeSlot !== null ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {creatives.map((creative) => (
+                    <button
+                      key={creative.id}
+                      onClick={() => handleCreativeClick(creative)}
                       style={{
-                        width: '100%',
-                        height: 60,
-                        objectFit: 'contain',
-                        display: 'block',
-                        background: '#0a0a1a',
-                        borderRadius: 3,
-                      }}
-                    />
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: 10,
-                        color: '#888',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        background: '#1e1e38',
+                        border:
+                          activePlacement?.creativeId === creative.id
+                            ? '2px solid #00B4D8'
+                            : '2px solid #2a2a4a',
+                        borderRadius: 6,
+                        padding: 6,
+                        cursor: 'pointer',
+                        textAlign: 'left',
                       }}
                     >
-                      {creative.width}×{creative.height}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: '#555', fontSize: 12, textAlign: 'center', marginTop: 20 }}>
-                Click a slot on the screenshot to assign a creative
-              </div>
-            )}
-          </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/creative-image?id=${encodeURIComponent(creative.filename)}`}
+                        alt={creative.original_name}
+                        style={{
+                          width: '100%',
+                          height: 60,
+                          objectFit: 'contain',
+                          display: 'block',
+                          background: '#0a0a1a',
+                          borderRadius: 3,
+                        }}
+                      />
+                      <div
+                        style={{
+                          marginTop: 4,
+                          fontSize: 10,
+                          color: '#888',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {creative.width}×{creative.height}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#555', fontSize: 12, textAlign: 'center', marginTop: 20 }}>
+                  Click a slot on the screenshot to assign a creative
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Export button */}
           <div
