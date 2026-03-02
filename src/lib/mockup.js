@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { createPage } = require('./browser');
-const { detectAdSlots } = require('./detector');
+const { detectAdSlots, cleanPageForScreenshot } = require('./detector');
 const { matchSlots } = require('./matcher');
 const db = require('./db');
 
@@ -58,6 +58,7 @@ async function generateMockup(campaignId, url, creatives) {
         slots_matched: 0,
       });
 
+      await cleanPageForScreenshot(page);
       const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
       db.updateMockup(mockupId, { screenshot_path: screenshotPath });
 
@@ -106,7 +107,10 @@ async function generateMockup(campaignId, url, creatives) {
       );
     }
 
-    // 5. Capture clean screenshot
+    // 5. Strip any remaining overlays / paywalls before screenshotting
+    await cleanPageForScreenshot(page);
+
+    // 6. Capture clean screenshot
     const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
 
     db.updateMockup(mockupId, {

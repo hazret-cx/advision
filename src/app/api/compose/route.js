@@ -8,7 +8,7 @@ const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 export async function POST(request) {
   try {
-    const { mockupId, screenshotPath, placements } = await request.json();
+    const { mockupId, screenshotPath, placements, erasures = [] } = await request.json();
 
     if (!mockupId || !screenshotPath || !Array.isArray(placements)) {
       return NextResponse.json(
@@ -33,6 +33,21 @@ export async function POST(request) {
 
     // Build composite inputs
     const compositeInputs = [];
+
+    // Erasures first (white paint-over) so creatives composite on top
+    for (const erasure of erasures) {
+      const w = Math.round(erasure.width);
+      const h = Math.round(erasure.height);
+      if (w <= 0 || h <= 0) continue;
+      const whiteRect = await sharp({
+        create: { width: w, height: h, channels: 3, background: { r: 255, g: 255, b: 255 } },
+      }).png().toBuffer();
+      compositeInputs.push({
+        input: whiteRect,
+        left: Math.max(0, Math.round(erasure.x)),
+        top: Math.max(0, Math.round(erasure.y)),
+      });
+    }
 
     for (const placement of placements) {
       const { x, y, width, height, creativeId, fitMode } = placement;

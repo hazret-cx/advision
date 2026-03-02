@@ -454,10 +454,81 @@ async function injectCreative(page, slot, imageDataUrl) {
   }, { selector: slot.selector, width: slot.width, height: slot.height, x: slot.x, y: slot.y, imageDataUrl });
 }
 
+/**
+ * Aggressively hide CMP overlays, subscription walls, and scroll locks
+ * from the live page DOM before taking a screenshot.
+ * Called after ad-slot detection, right before captureScreenshot().
+ */
+async function cleanPageForScreenshot(page) {
+  await page.evaluate(() => {
+    // ── 1. Named overlay patterns ───────────────────────────────────────
+    const patterns = [
+      // Sourcepoint (Condé Nast)
+      '.sp-message-container', '.sp_message_container', '[class*="sp_message"]',
+      // OneTrust
+      '#onetrust-banner-sdk', '#onetrust-pc-sdk', '#onetrust-consent-sdk',
+      '.onetrust-pc-dark-filter',
+      // Piano / TP (used by many publishers as a paywall)
+      '[class*="piano-"]', '[class*="tp-modal"]', '[class*="tp-backdrop"]',
+      '[id*="piano"]',
+      // Subscription / registration walls
+      '[class*="paywall"]', '[id*="paywall"]',
+      '[class*="subscribe-wall"]', '[class*="subscription-wall"]',
+      '[class*="regwall"]', '[id*="regwall"]',
+      '[class*="metered-content"]', '[class*="meter-wall"]',
+      '[class*="content-gate"]', '[id*="content-gate"]',
+      // Cookie banners
+      '[class*="cookie-banner"]', '[class*="cookie-consent"]',
+      '[class*="cookie-notice"]', '[class*="consent-banner"]',
+      '[class*="gdpr-banner"]', '[id*="cookie-banner"]', '[id*="gdpr"]',
+      '.cc-window', '.cookiefirst-root',
+      // Specific vendors
+      '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay',
+      '#didomi-popup', '.didomi-popup-backdrop',
+      '#truste-consent-track', '.truste-messageBox',
+      '.modal-backdrop', '[class*="modal-overlay"]',
+    ];
+
+    patterns.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => {
+          el.style.setProperty('display', 'none', 'important');
+        });
+      } catch {}
+    });
+
+    // ── 2. Heuristic — hide large fixed/sticky elements with high z-index ─
+    // (catches paywall gates that don't use predictable class names)
+    try {
+      document.querySelectorAll('*').forEach(el => {
+        const s = window.getComputedStyle(el);
+        if (s.position !== 'fixed' && s.position !== 'sticky') return;
+        const zIndex = parseInt(s.zIndex) || 0;
+        if (zIndex < 100) return;
+        const r = el.getBoundingClientRect();
+        if (r.width >= window.innerWidth * 0.8 && r.height >= window.innerHeight * 0.4) {
+          el.style.setProperty('display', 'none', 'important');
+        }
+      });
+    } catch {}
+
+    // ── 3. Unfreeze scroll locks ────────────────────────────────────────
+    try {
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('overflow-y');
+      document.body.style.removeProperty('position');
+      document.body.style.removeProperty('top');
+      document.documentElement.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('overflow-y');
+    } catch {}
+  }).catch(() => {});
+}
+
 module.exports = {
   detectAdSlots,
   injectCreative,
   dismissConsentBanners,
+  cleanPageForScreenshot,
   isIabSize,
   IAB_SIZES,
 };
