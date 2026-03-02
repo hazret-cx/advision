@@ -176,77 +176,175 @@ async function detectAdSlots(page, url) {
  */
 async function dismissConsentBanners(page) {
   const consentSelectors = [
-    // Sourcepoint (Condé Nast — Vogue, GQ, Wired, Vanity Fair, etc.)
+    // ── Sourcepoint (Condé Nast — Vogue, GQ, Wired, Vanity Fair, etc.) ──
     '.sp_choice_type_ACCEPT_ALL',
     'button[title="Accept all"]',
     'button[title="Accept All"]',
     '[data-choice-type="ACCEPT_ALL"]',
+    'button[data-sp-id]',
 
-    // OneTrust (used widely — Condé Nast also layers this)
+    // ── OneTrust ────────────────────────────────────────────────────────
     '#onetrust-accept-btn-handler',
     '.onetrust-accept-btn-handler',
+    '#accept-recommended-btn-handler',
 
-    // Quantcast CMP
+    // ── Cookiebot ───────────────────────────────────────────────────────
+    '#CybotCookiebotDialogBodyButtonAccept',
+    '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+    '[data-cookiebotdialog]',
+
+    // ── Didomi ──────────────────────────────────────────────────────────
+    '#didomi-notice-agree-button',
+    '.didomi-continue-without-agreeing',
+    '[data-didomi-action="agree"]',
+
+    // ── TrustArc ────────────────────────────────────────────────────────
+    '.trustarc-agree-btn',
+    '#truste-consent-button',
+    '.truste-button.primary',
+
+    // ── Quantcast CMP ───────────────────────────────────────────────────
     '.qc-cmp2-summary-buttons button:first-child',
     '[data-tmdatatrack="consent-accept"]',
+    '.qc-cmp2-buttons-desktop button:first-child',
 
-    // Functional (Financial Times, Guardian)
+    // ── Functional / Guardian / FT ───────────────────────────────────
     '.fc-cta-consent',
     '.js-accept-cookies',
     '[data-action="accept"]',
+    '.fc-button--primary',
 
-    // Generic attribute patterns
+    // ── CookieYes ───────────────────────────────────────────────────────
+    '.cky-btn-accept',
+    '[data-cky-tag="accept-button"]',
+
+    // ── Borlabs ─────────────────────────────────────────────────────────
+    '#borlabs-cookie-btn-accept-all',
+    '.borlabs-cookie__btn--accept-all',
+
+    // ── Usercentrics ────────────────────────────────────────────────────
+    '[data-testid="uc-accept-all-button"]',
+    'button[data-testid="accept-all"]',
+
+    // ── Axeptio ─────────────────────────────────────────────────────────
+    '#axeptio_btn_acceptAll',
+    '.axeptio_accept_all',
+
+    // ── Iubenda ─────────────────────────────────────────────────────────
+    '.iubenda-cs-accept-btn',
+    '#iubFooterBtn',
+
+    // ── Klaro ───────────────────────────────────────────────────────────
+    '.klaro .cm-btn-accept-all',
+
+    // ── WordPress GDPR / Cookiebot variants ─────────────────────────────
+    '.cookie-notice-container #cn-accept-cookie',
+    '.cookie-law-info-bar #cookie_action_close_header_accept',
+
+    // ── Generic attribute patterns ──────────────────────────────────────
     'button[id*="accept-all"]',
+    'button[id*="acceptAll"]',
     'button[id*="accept"]',
     'button[id*="consent"]',
+    'button[id*="agree"]',
     'button[class*="accept-all"]',
+    'button[class*="acceptAll"]',
     'button[class*="accept"]',
     'button[class*="consent"]',
     'button[data-testid*="accept"]',
-    '[class*="cookie"] button',
-    '[id*="cookie"] button',
+    'button[data-action*="accept"]',
+    '[class*="cookie"] button[class*="primary"]',
+    '[id*="cookie"] button[class*="primary"]',
+    '[class*="consent"] button[class*="primary"]',
 
-    // Text-based fallbacks (most specific first to avoid false positives)
+    // ── Text-based fallbacks ─────────────────────────────────────────────
     'button:has-text("Accept all")',
     'button:has-text("Accept All")',
+    'button:has-text("Accept all & continue")',
     'button:has-text("Accept Cookies")',
+    'button:has-text("Accept all cookies")',
+    'button:has-text("Accept All Cookies")',
     'button:has-text("Accept")',
+    'button:has-text("I Accept")',
     'button:has-text("I Agree")',
     'button:has-text("Agree")',
+    'button:has-text("Agree all")',
     'button:has-text("Allow all")',
     'button:has-text("Allow All")',
+    'button:has-text("Allow all cookies")',
     'button:has-text("Allow")',
     'button:has-text("Got it")',
     'button:has-text("OK")',
+    'button:has-text("Continue")',
+    'button:has-text("Consent")',
   ];
 
   // Give the consent dialog time to render before we start looking
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
 
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + 10000;
 
-  // Try in the main frame first, then in any child frames (some CMPs load in iframes)
-  const frames = [page, ...page.frames().filter(f => f !== page.mainFrame())];
-
-  for (const frame of frames) {
-    if (Date.now() >= deadline) break;
-
+  /**
+   * Try to click a consent button in a frame.
+   * Returns true if something was clicked.
+   */
+  async function tryClickConsent(frame) {
     for (const selector of consentSelectors) {
-      if (Date.now() >= deadline) break;
-
+      if (Date.now() >= deadline) return false;
       try {
         const btn = await frame.$(selector);
         if (btn) {
-          await btn.click({ timeout: 1000 });
-          // Wait for the overlay to animate out before continuing
-          await page.waitForTimeout(1500);
-          return; // done — exit both loops
+          const visible = await btn.isVisible().catch(() => false);
+          if (visible) {
+            await btn.click({ timeout: 1500, force: false });
+            await page.waitForTimeout(1200);
+            return true;
+          }
         }
       } catch {
         // ignore — move to next selector
       }
     }
+    return false;
   }
+
+  // 1. Try main frame first
+  const mainClicked = await tryClickConsent(page);
+  if (mainClicked) return;
+
+  // 2. Try child frames (Sourcepoint, TrustArc, some OneTrust installs load in iframes)
+  for (const frame of page.frames()) {
+    if (Date.now() >= deadline) break;
+    if (frame === page.mainFrame()) continue;
+
+    const url = frame.url();
+    // Focus on frames that look CMP-related
+    const isCmpFrame = /sourcepoint|consent|cookie|gdpr|cmp|privacy|didomi|onetrust|trustarc|cookiebot/i.test(url);
+    if (!isCmpFrame && url !== 'about:blank') continue;
+
+    const clicked = await tryClickConsent(frame);
+    if (clicked) return;
+  }
+
+  // 3. Last resort — hide overlay elements via CSS injection
+  // This catches CMPs that don't use a standard button pattern
+  await page.evaluate(() => {
+    const overlaySelectors = [
+      '[class*="cookie-banner"]', '[class*="cookie-consent"]',
+      '[class*="cookie-notice"]', '[class*="consent-banner"]',
+      '[class*="gdpr-banner"]', '[id*="cookie-banner"]',
+      '[id*="cookie-consent"]', '[id*="gdpr"]',
+      '#onetrust-banner-sdk', '.cc-window', '.cookiefirst-root',
+    ];
+    overlaySelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        if (el.offsetHeight > 50) el.style.display = 'none';
+      });
+    });
+    // Also unfreeze body scroll (some CMPs lock it)
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }).catch(() => {});
 }
 
 /**
