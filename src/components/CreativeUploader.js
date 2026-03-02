@@ -9,30 +9,15 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
 
   const handleFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
-
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append('campaignId', campaignId);
-
-      for (const file of files) {
-        formData.append('creatives', file);
-      }
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      for (const file of files) formData.append('creatives', file);
+      const res  = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-
-      if (data.uploaded) {
-        onUpload(data.uploaded);
-      }
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      if (data.uploaded) onUpload(data.uploaded);
     } catch (err) {
       console.error('Upload error:', err);
     } finally {
@@ -43,26 +28,18 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
   const handleDrag = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
+    setDragActive(e.type === 'dragenter' || e.type === 'dragover');
   }, []);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files) {
-      handleFiles(e.dataTransfer.files);
-    }
+    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
   const handleChange = useCallback((e) => {
-    if (e.target.files) {
-      handleFiles(e.target.files);
-    }
+    if (e.target.files) handleFiles(e.target.files);
   }, [handleFiles]);
 
   // Group creatives by size
@@ -75,12 +52,14 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Upload Creative Assets</h2>
-      <p className="text-gray-500 mb-6">
+      <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
+        Upload Creative Assets
+      </h2>
+      <p style={{ color: '#7A7A85', marginBottom: 24, fontSize: 14, fontFamily: 'var(--font-body)' }}>
         Upload your ad creatives. Dimensions are detected automatically.
       </p>
 
-      {/* Drop zone */}
+      {/* ── Drop zone ── */}
       <div
         className={`dropzone p-10 text-center cursor-pointer mb-6 ${dragActive ? 'active' : ''}`}
         onDragEnter={handleDrag}
@@ -89,51 +68,52 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={handleChange}
-          className="hidden"
-        />
+        <input ref={inputRef} type="file" multiple accept="image/*" onChange={handleChange} className="hidden" />
 
         {uploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-[#00B4D8] border-t-transparent rounded-full spinner" />
-            <span className="text-gray-500">Uploading & detecting dimensions...</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 32, height: 32, border: '2px solid #5C26FF', borderTopColor: 'transparent', borderRadius: '50%' }} className="spinner" />
+            <span style={{ color: '#7A7A85', fontFamily: 'var(--font-body)', fontSize: 14 }}>Uploading &amp; detecting dimensions…</span>
           </div>
         ) : (
           <div>
-            <div className="text-4xl mb-3">📁</div>
-            <div className="font-medium text-gray-700">
-              Drag & drop creative files here, or click to browse
+            <div style={{ fontSize: 36, marginBottom: 12 }}>📁</div>
+            <div style={{ fontWeight: 500, color: '#C8C8D0', fontFamily: 'var(--font-body)', fontSize: 14 }}>
+              Drag &amp; drop creative files here, or click to browse
             </div>
-            <div className="text-sm text-gray-400 mt-2">
+            <div style={{ fontSize: 12, color: '#7A7A85', marginTop: 8, fontFamily: 'var(--font-body)' }}>
               Supports PNG, JPG, GIF, WebP — dimensions detected automatically
             </div>
           </div>
         )}
       </div>
 
-      {/* Uploaded creatives grid */}
+      {/* ── Uploaded creatives ── */}
       {creatives.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7A7A85', fontFamily: 'var(--font-body)' }}>
               Uploaded Creatives ({creatives.length})
-            </h3>
-            <div className="text-sm text-gray-400">
+            </div>
+            <div style={{ fontSize: 12, color: '#7A7A85', fontFamily: 'var(--font-body)' }}>
               {Object.keys(sizeGroups).length} unique size(s)
             </div>
           </div>
 
           {/* Size badges */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
             {Object.entries(sizeGroups).map(([size, items]) => (
               <span
                 key={size}
-                className="px-3 py-1.5 bg-[#00B4D8]/10 text-[#00B4D8] rounded-full text-sm font-medium"
+                style={{
+                  padding:      '4px 12px',
+                  background:   'rgba(92,38,255,0.15)',
+                  color:        '#8A5CFF',
+                  borderRadius: 999,
+                  fontSize:     12,
+                  fontWeight:   500,
+                  fontFamily:   'var(--font-body)',
+                }}
               >
                 {size} ({items.length})
               </span>
@@ -145,24 +125,33 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
             {creatives.map(c => (
               <div
                 key={c.id}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                style={{
+                  background:   'rgba(255,255,255,0.03)',
+                  border:       '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12,
+                  overflow:     'hidden',
+                  transition:   'box-shadow 0.2s',
+                }}
+                onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)'}
+                onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}
               >
-                <div className="aspect-video bg-gray-50 flex items-center justify-center p-2">
+                <div style={{ aspectRatio: '16/9', background: '#121218', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/creative-image?id=${c.filename}`}
                     alt={c.original_name}
-                    className="max-w-full max-h-full object-contain"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                     onError={(e) => {
                       e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<div class="text-gray-400 text-xs">Preview unavailable</div>';
+                      e.target.parentElement.innerHTML = '<div style="color:#7A7A85;font-size:11px">Preview unavailable</div>';
                     }}
                   />
                 </div>
-                <div className="p-3">
-                  <div className="text-xs font-medium text-gray-700 truncate" title={c.original_name}>
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: '#C8C8D0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
                     {c.original_name}
                   </div>
-                  <div className="text-xs text-[#00B4D8] font-semibold mt-1">
+                  <div style={{ fontSize: 11, color: '#5C26FF', fontWeight: 600, marginTop: 4, fontFamily: 'var(--font-body)' }}>
                     {c.width} × {c.height}
                   </div>
                 </div>

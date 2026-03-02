@@ -13,90 +13,115 @@ const EXAMPLE_URLS = [
 export default function UrlInput({ onScrape, loading }) {
   const [urls, setUrls] = useState(['']);
 
-  const addUrl = useCallback(() => {
-    if (urls.length < 10) {
-      setUrls(prev => [...prev, '']);
-    }
-  }, [urls]);
-
-  const removeUrl = useCallback((index) => {
-    setUrls(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const updateUrl = useCallback((index, value) => {
-    setUrls(prev => {
-      const updated = [...prev];
-      updated[index] = value;
-      return updated;
-    });
-  }, []);
+  const addUrl    = useCallback(() => { if (urls.length < 10) setUrls(prev => [...prev, '']); }, [urls]);
+  const removeUrl = useCallback((i) => setUrls(prev => prev.filter((_, j) => j !== i)), []);
+  const updateUrl = useCallback((i, val) => setUrls(prev => { const u = [...prev]; u[i] = val; return u; }), []);
 
   const handleScrape = useCallback(() => {
-    const validUrls = urls.filter(u => u.trim().length > 0);
-    if (validUrls.length > 0) {
-      onScrape(validUrls);
-    }
+    const valid = urls.filter(u => u.trim().length > 0);
+    if (valid.length > 0) onScrape(valid);
   }, [urls, onScrape]);
 
   const validCount = urls.filter(u => u.trim().length > 0).length;
 
+  const inputStyle = {
+    flex:         1,
+    padding:      '12px 16px',
+    background:   'rgba(255,255,255,0.05)',
+    border:       '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    color:        '#fff',
+    fontFamily:   'var(--font-body)',
+    fontSize:     13,
+    outline:      'none',
+  };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Enter Publisher URLs</h2>
-      <p className="text-gray-500 mb-6">
+      <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
+        Enter Publisher URLs
+      </h2>
+      <p style={{ color: '#7A7A85', marginBottom: 24, fontSize: 14, fontFamily: 'var(--font-body)' }}>
         Add the publisher page URLs where you want to preview ad placements. Up to 10 URLs per session.
       </p>
 
-      {/* URL inputs */}
-      <div className="space-y-3 mb-6">
+      {/* ── URL inputs ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         {urls.map((url, i) => (
-          <div key={i} className="flex gap-3 items-center">
-            <span className="text-sm text-gray-400 w-6 text-right">{i + 1}.</span>
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#7A7A85', width: 20, textAlign: 'right', fontFamily: 'var(--font-body)' }}>{i + 1}.</span>
             <input
               type="text"
               value={url}
               onChange={e => updateUrl(i, e.target.value)}
               placeholder="e.g. bloomberg.com/technology"
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-[#00B4D8] focus:ring-1 focus:ring-[#00B4D8]/20 text-sm"
+              style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#5C26FF'; e.target.style.boxShadow = '0 0 0 3px rgba(92,38,255,0.15)'; }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
             {urls.length > 1 && (
               <button
                 onClick={() => removeUrl(i)}
-                className="text-gray-300 hover:text-red-500 transition-colors text-lg"
-              >
-                ✕
-              </button>
+                style={{ background: 'none', border: 'none', color: '#7A7A85', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                onMouseOver={e => e.target.style.color = '#FF4D6A'}
+                onMouseOut={e => e.target.style.color = '#7A7A85'}
+              >✕</button>
             )}
           </div>
         ))}
       </div>
 
-      {/* Add URL button */}
+      {/* ── Add URL ── */}
       {urls.length < 10 && (
         <button
           onClick={addUrl}
-          className="text-sm text-[#00B4D8] hover:text-[#00B4D8]/80 font-medium mb-6 flex items-center gap-1"
+          style={{
+            background:  'none',
+            border:      'none',
+            color:       '#5C26FF',
+            cursor:      'pointer',
+            fontFamily:  'var(--font-body)',
+            fontSize:    13,
+            fontWeight:  500,
+            marginBottom: 24,
+            display:     'flex',
+            alignItems:  'center',
+            gap:         4,
+          }}
+          onMouseOver={e => e.currentTarget.style.color = '#8A5CFF'}
+          onMouseOut={e => e.currentTarget.style.color = '#5C26FF'}
         >
           <span>+</span> Add another URL
         </button>
       )}
 
-      {/* Quick-add examples */}
-      <div className="mb-8">
-        <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Quick add:</span>
-        <div className="flex flex-wrap gap-2 mt-2">
+      {/* ── Quick-add examples ── */}
+      <div style={{ marginBottom: 32 }}>
+        <span style={{ fontSize: 11, color: '#7A7A85', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+          Quick add:
+        </span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
           {EXAMPLE_URLS.map(ex => (
             <button
               key={ex}
               onClick={() => {
                 const emptyIdx = urls.findIndex(u => u.trim() === '');
-                if (emptyIdx >= 0) {
-                  updateUrl(emptyIdx, ex);
-                } else if (urls.length < 10) {
-                  setUrls(prev => [...prev, ex]);
-                }
+                if (emptyIdx >= 0) updateUrl(emptyIdx, ex);
+                else if (urls.length < 10) setUrls(prev => [...prev, ex]);
               }}
-              className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full text-xs hover:bg-[#00B4D8]/10 hover:text-[#00B4D8] transition-all"
+              style={{
+                padding:      '5px 12px',
+                background:   'rgba(255,255,255,0.05)',
+                color:        '#C8C8D0',
+                border:       '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 999,
+                fontSize:     12,
+                cursor:       'pointer',
+                fontFamily:   'var(--font-body)',
+                transition:   'all 0.2s',
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = 'rgba(92,38,255,0.15)'; e.currentTarget.style.color = '#8A5CFF'; e.currentTarget.style.borderColor = 'rgba(92,38,255,0.3)'; }}
+              onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#C8C8D0'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
             >
               {ex}
             </button>
@@ -104,16 +129,35 @@ export default function UrlInput({ onScrape, loading }) {
         </div>
       </div>
 
-      {/* Generate button */}
+      {/* ── Generate button ── */}
       <button
         onClick={handleScrape}
         disabled={loading || validCount === 0}
-        className="w-full py-4 bg-[#1A1A2E] text-white rounded-xl font-semibold text-lg hover:bg-[#1A1A2E]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-3"
+        style={{
+          width:        '100%',
+          padding:      '16px 0',
+          background:   loading || validCount === 0 ? 'rgba(92,38,255,0.3)' : '#5C26FF',
+          color:        loading || validCount === 0 ? 'rgba(255,255,255,0.4)' : '#fff',
+          border:       'none',
+          borderRadius: 12,
+          fontFamily:   'var(--font-body)',
+          fontWeight:   600,
+          fontSize:     16,
+          cursor:       loading || validCount === 0 ? 'not-allowed' : 'pointer',
+          transition:   'all 0.2s',
+          display:      'flex',
+          alignItems:   'center',
+          justifyContent: 'center',
+          gap:          12,
+          boxShadow:    loading || validCount === 0 ? 'none' : '0 4px 20px rgba(92,38,255,0.3)',
+        }}
+        onMouseOver={e => { if (!loading && validCount > 0) e.currentTarget.style.background = '#4A1ECC'; }}
+        onMouseOut={e => { if (!loading && validCount > 0) e.currentTarget.style.background = '#5C26FF'; }}
       >
         {loading ? (
           <>
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full spinner" />
-            <span>Scanning pages & generating mockups...</span>
+            <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' }} className="spinner" />
+            <span>Scanning pages &amp; generating mockups…</span>
           </>
         ) : (
           <>
@@ -124,8 +168,8 @@ export default function UrlInput({ onScrape, loading }) {
       </button>
 
       {loading && (
-        <p className="text-center text-sm text-gray-400 mt-3">
-          This may take 15–30 seconds per URL. We're loading each page, detecting ad slots, injecting your creatives, and capturing screenshots.
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#7A7A85', marginTop: 12, fontFamily: 'var(--font-body)' }}>
+          This may take 15–30 seconds per URL. We're loading each page, detecting ad slots, and capturing screenshots.
         </p>
       )}
     </div>

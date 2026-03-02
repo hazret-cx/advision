@@ -3,19 +3,17 @@
 import { useState, useEffect } from 'react';
 
 export default function CampaignSelector({ onSelect }) {
-  const [campaigns, setCampaigns] = useState([]);
+  const [campaigns, setCampaigns]   = useState([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState('');
+  const [name, setName]             = useState('');
   const [clientName, setClientName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating]     = useState(false);
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
+  useEffect(() => { fetchCampaigns(); }, []);
 
   async function fetchCampaigns() {
     try {
-      const res = await fetch('/api/campaign');
+      const res  = await fetch('/api/campaign');
       const data = await res.json();
       setCampaigns(data.campaigns || []);
     } catch (err) {
@@ -26,21 +24,15 @@ export default function CampaignSelector({ onSelect }) {
   async function handleCreate(e) {
     e.preventDefault();
     if (!name.trim() || !clientName.trim()) return;
-
     setCreating(true);
     try {
-      const res = await fetch('/api/campaign', {
-        method: 'POST',
+      const res  = await fetch('/api/campaign', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          clientName: clientName.trim(),
-        }),
+        body:    JSON.stringify({ name: name.trim(), clientName: clientName.trim() }),
       });
       const data = await res.json();
-      if (data.campaign) {
-        onSelect(data.campaign);
-      }
+      if (data.campaign) onSelect(data.campaign);
     } catch (err) {
       console.error('Failed to create campaign:', err);
     } finally {
@@ -48,34 +40,68 @@ export default function CampaignSelector({ onSelect }) {
     }
   }
 
+  const inputStyle = {
+    width:        '100%',
+    padding:      '10px 14px',
+    background:   'rgba(255,255,255,0.05)',
+    border:       '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    color:        '#fff',
+    fontFamily:   'var(--font-body)',
+    fontSize:     14,
+    outline:      'none',
+    boxSizing:    'border-box',
+  };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Select or Create a Campaign</h2>
-      <p className="text-gray-500 mb-6">
+      <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
+        Select or Create a Campaign
+      </h2>
+      <p style={{ color: '#7A7A85', marginBottom: 24, fontSize: 14, fontFamily: 'var(--font-body)' }}>
         Campaigns group your creatives and mockups together by client and project.
       </p>
 
-      {/* Existing campaigns */}
+      {/* ── Existing campaigns ── */}
       {campaigns.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Existing Campaigns</h3>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7A7A85', marginBottom: 12, fontFamily: 'var(--font-body)' }}>
+            Existing Campaigns
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {campaigns.map(c => (
               <button
                 key={c.id}
                 onClick={() => onSelect(c)}
-                className="text-left p-5 bg-white rounded-xl border border-gray-200 hover:border-[#00B4D8] hover:shadow-md transition-all group"
+                style={{
+                  textAlign:    'left',
+                  padding:      20,
+                  background:   'rgba(255,255,255,0.03)',
+                  border:       '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12,
+                  cursor:       'pointer',
+                  transition:   'all 0.2s',
+                  fontFamily:   'var(--font-body)',
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.borderColor = '#5C26FF';
+                  e.currentTarget.style.background  = 'rgba(92,38,255,0.06)';
+                  e.currentTarget.style.boxShadow   = '0 4px 24px rgba(92,38,255,0.15)';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.background  = 'rgba(255,255,255,0.03)';
+                  e.currentTarget.style.boxShadow   = 'none';
+                }}
               >
-                <div className="flex items-start justify-between">
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <div>
-                    <div className="font-semibold text-[#1A1A2E] group-hover:text-[#00B4D8] transition-colors">
-                      {c.name}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">{c.client_name}</div>
+                    <div style={{ fontWeight: 600, color: '#fff', fontSize: 14 }}>{c.name}</div>
+                    <div style={{ fontSize: 13, color: '#7A7A85', marginTop: 4 }}>{c.client_name}</div>
                   </div>
-                  <span className="text-gray-300 group-hover:text-[#00B4D8] text-lg transition-colors">→</span>
+                  <span style={{ color: '#5C26FF', fontSize: 18 }}>→</span>
                 </div>
-                <div className="text-xs text-gray-400 mt-3">
+                <div style={{ fontSize: 11, color: '#7A7A85', marginTop: 12 }}>
                   Created {new Date(c.created_at).toLocaleDateString()}
                 </div>
               </button>
@@ -84,53 +110,102 @@ export default function CampaignSelector({ onSelect }) {
         </div>
       )}
 
-      {/* Create new */}
+      {/* ── Create new ── */}
       {!showCreate ? (
         <button
           onClick={() => setShowCreate(true)}
-          className="w-full p-5 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#00B4D8] hover:text-[#00B4D8] transition-all text-center"
+          style={{
+            width:        '100%',
+            padding:      20,
+            border:       '2px dashed rgba(255,255,255,0.1)',
+            borderRadius: 12,
+            background:   'transparent',
+            color:        '#7A7A85',
+            cursor:       'pointer',
+            textAlign:    'center',
+            fontFamily:   'var(--font-body)',
+            transition:   'all 0.2s',
+          }}
+          onMouseOver={e => {
+            e.currentTarget.style.borderColor = '#5C26FF';
+            e.currentTarget.style.color       = '#8A5CFF';
+          }}
+          onMouseOut={e => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.color       = '#7A7A85';
+          }}
         >
-          <span className="text-2xl block mb-2">+</span>
-          <span className="font-medium">Create New Campaign</span>
+          <span style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>+</span>
+          <span style={{ fontWeight: 500, fontSize: 14 }}>Create New Campaign</span>
         </button>
       ) : (
-        <form onSubmit={handleCreate} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="font-semibold text-[#1A1A2E] mb-4">New Campaign</h3>
+        <form
+          onSubmit={handleCreate}
+          style={{
+            background:   'rgba(255,255,255,0.03)',
+            border:       '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 12,
+            padding:      24,
+          }}
+        >
+          <h3 style={{ fontWeight: 600, color: '#fff', marginBottom: 16, fontSize: 15, fontFamily: 'var(--font-body)' }}>
+            New Campaign
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Client Name</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#C8C8D0', marginBottom: 6, fontFamily: 'var(--font-body)' }}>
+                Client Name
+              </label>
               <input
                 type="text"
                 value={clientName}
                 onChange={e => setClientName(e.target.value)}
                 placeholder="e.g. PMI, Kraken, PayPal"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00B4D8] focus:ring-1 focus:ring-[#00B4D8]/20"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#5C26FF'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Campaign Name</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#C8C8D0', marginBottom: 6, fontFamily: 'var(--font-body)' }}>
+                Campaign Name
+              </label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Q1 2026 Display, Brand Awareness"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00B4D8] focus:ring-1 focus:ring-[#00B4D8]/20"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#5C26FF'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
               />
             </div>
           </div>
-          <div className="flex gap-3 mt-4">
+          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
             <button
               type="submit"
               disabled={creating || !name.trim() || !clientName.trim()}
-              className="px-5 py-2.5 bg-[#00B4D8] text-white rounded-lg font-medium hover:bg-[#00B4D8]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              style={{
+                padding:      '10px 20px',
+                background:   '#5C26FF',
+                color:        '#fff',
+                border:       'none',
+                borderRadius: 999,
+                fontFamily:   'var(--font-body)',
+                fontWeight:   500,
+                fontSize:     13,
+                cursor:       creating || !name.trim() || !clientName.trim() ? 'not-allowed' : 'pointer',
+                opacity:      creating || !name.trim() || !clientName.trim() ? 0.5 : 1,
+                transition:   'all 0.2s',
+              }}
             >
-              {creating ? 'Creating...' : 'Create Campaign'}
+              {creating ? 'Creating…' : 'Create Campaign'}
             </button>
             <button
               type="button"
               onClick={() => setShowCreate(false)}
-              className="px-5 py-2.5 text-gray-500 hover:text-gray-700 transition-colors"
+              style={{ background: 'none', border: 'none', color: '#7A7A85', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13 }}
             >
               Cancel
             </button>

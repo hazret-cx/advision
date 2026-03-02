@@ -2,56 +2,44 @@
 
 export default function MatchReport({ results }) {
   if (!results) return null;
-
   const { summary, results: mockupResults } = results;
 
   return (
-    <div className="mb-8">
-      <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Match Report</h2>
-      <p className="text-gray-500 mb-6">
+    <div style={{ marginBottom: 32 }}>
+      <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
+        Match Report
+      </h2>
+      <p style={{ color: '#7A7A85', marginBottom: 24, fontSize: 14, fontFamily: 'var(--font-body)' }}>
         Overview of detected ad slots and creative matches across all publisher URLs.
       </p>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <SummaryCard
-          label="URLs Processed"
-          value={summary.urlsProcessed}
-          icon="🌐"
-        />
-        <SummaryCard
-          label="Slots Detected"
-          value={summary.totalSlotsDetected}
-          icon="🎯"
-        />
-        <SummaryCard
-          label="Slots Matched"
-          value={summary.totalSlotsMatched}
-          icon="✅"
-          highlight={summary.totalSlotsMatched > 0}
-        />
-        <SummaryCard
-          label="Errors"
-          value={summary.errors}
-          icon="⚠️"
-          warning={summary.errors > 0}
-        />
+      {/* ── Summary cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: 32 }}>
+        <SummaryCard label="URLs Processed"  value={summary.urlsProcessed}        icon="🌐" />
+        <SummaryCard label="Slots Detected"  value={summary.totalSlotsDetected}   icon="🎯" />
+        <SummaryCard label="Slots Matched"   value={summary.totalSlotsMatched}    icon="✅" highlight={summary.totalSlotsMatched > 0} />
+        <SummaryCard label="Errors"          value={summary.errors}               icon="⚠️" warning={summary.errors > 0} />
       </div>
 
-      {/* Per-URL breakdown */}
-      <div className="space-y-4">
+      {/* ── Per-URL breakdown ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {mockupResults.map((result, i) => (
           <div
             key={result.mockupId || i}
-            className="bg-white rounded-xl border border-gray-200 p-5"
+            style={{
+              background:   'rgba(255,255,255,0.03)',
+              border:       '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 12,
+              padding:      20,
+            }}
           >
-            <div className="flex items-start justify-between mb-3">
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
-                <div className="font-semibold text-[#1A1A2E] flex items-center gap-2">
+                <div style={{ fontWeight: 600, color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)' }}>
                   {result.status === 'completed' ? '✅' : result.status === 'blocked' ? '🚫' : '❌'}
                   {result.domain}
                 </div>
-                <div className="text-xs text-gray-400 mt-0.5 truncate max-w-lg">{result.url}</div>
+                <div style={{ fontSize: 11, color: '#7A7A85', marginTop: 4, fontFamily: 'var(--font-body)' }}>{result.url}</div>
               </div>
               <StatusBadge status={result.status} />
             </div>
@@ -61,30 +49,41 @@ export default function MatchReport({ results }) {
             )}
 
             {result.status === 'error' ? (
-              <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3">
+              <div style={{ fontSize: 13, color: '#FF4D6A', background: 'rgba(255,77,106,0.1)', border: '1px solid rgba(255,77,106,0.2)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-body)' }}>
                 {result.error}
               </div>
             ) : result.matchReport ? (
               <div>
-                <div className="flex gap-6 text-sm mb-3">
-                  <span className="text-gray-500">
-                    <strong className="text-[#1A1A2E]">{result.matchReport.totalSlotsDetected}</strong> slots detected
+                <div style={{ display: 'flex', gap: 24, fontSize: 13, marginBottom: 12, fontFamily: 'var(--font-body)' }}>
+                  <span style={{ color: '#7A7A85' }}>
+                    <strong style={{ color: '#fff' }}>{result.matchReport.totalSlotsDetected}</strong> slots detected
                   </span>
-                  <span className="text-gray-500">
-                    <strong className="text-green-600">{result.matchReport.totalMatched}</strong> matched
+                  <span style={{ color: '#7A7A85' }}>
+                    <strong style={{ color: '#00E87B' }}>{result.matchReport.totalMatched}</strong> matched
                   </span>
-                  <span className="text-gray-500">
-                    <strong className="text-orange-500">{result.matchReport.totalUnmatchedSlots}</strong> unmatched
+                  <span style={{ color: '#7A7A85' }}>
+                    <strong style={{ color: '#FFB84D' }}>{result.matchReport.totalUnmatchedSlots}</strong> unmatched
                   </span>
                 </div>
 
-                {/* Matched sizes */}
                 {result.matchReport.matched.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                     {result.matchReport.matched.map((m, j) => (
                       <span
                         key={j}
-                        className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-medium flex items-center gap-1"
+                        style={{
+                          padding:    '3px 10px',
+                          background: 'rgba(0,232,123,0.1)',
+                          color:      '#00E87B',
+                          border:     '1px solid rgba(0,232,123,0.2)',
+                          borderRadius: 6,
+                          fontSize:   12,
+                          fontWeight: 500,
+                          display:    'inline-flex',
+                          alignItems: 'center',
+                          gap:        6,
+                          fontFamily: 'var(--font-body)',
+                        }}
                       >
                         {m.sizeKey} ✓ <TierBadge tier={m.matchTier} />
                       </span>
@@ -92,13 +91,21 @@ export default function MatchReport({ results }) {
                   </div>
                 )}
 
-                {/* Unmatched sizes */}
                 {result.matchReport.unmatchedSlots.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {[...new Set(result.matchReport.unmatchedSlots.map(u => u.sizeKey))].map((size, j) => (
                       <span
                         key={j}
-                        className="px-2 py-1 bg-orange-50 text-orange-600 rounded text-xs font-medium"
+                        style={{
+                          padding:      '3px 10px',
+                          background:   'rgba(255,184,77,0.1)',
+                          color:        '#FFB84D',
+                          border:       '1px solid rgba(255,184,77,0.2)',
+                          borderRadius: 6,
+                          fontSize:     12,
+                          fontWeight:   500,
+                          fontFamily:   'var(--font-body)',
+                        }}
                       >
                         {size} — no creative
                       </span>
@@ -116,81 +123,74 @@ export default function MatchReport({ results }) {
 
 function TierBadge({ tier }) {
   if (!tier) return null;
-
   const styles = {
-    exact: 'bg-green-200 text-green-800',
-    'aspect-ratio': 'bg-blue-100 text-blue-700',
-    'fit-within': 'bg-purple-100 text-purple-700',
+    exact:          { bg: 'rgba(0,232,123,0.2)',    color: '#00E87B' },
+    'aspect-ratio': { bg: 'rgba(92,38,255,0.2)',    color: '#8A5CFF' },
+    'fit-within':   { bg: 'rgba(255,184,77,0.2)',   color: '#FFB84D' },
   };
-
-  const labels = {
-    exact: 'Exact',
-    'aspect-ratio': 'Aspect Ratio',
-    'fit-within': 'Fit Within',
-  };
-
-  const cls = styles[tier] || 'bg-gray-100 text-gray-600';
-  const label = labels[tier] || tier;
-
+  const labels = { exact: 'Exact', 'aspect-ratio': 'Aspect', 'fit-within': 'Fit' };
+  const s     = styles[tier] || { bg: 'rgba(255,255,255,0.08)', color: '#C8C8D0' };
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
-      {label}
+    <span style={{ padding: '1px 6px', background: s.bg, color: s.color, borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+      {labels[tier] || tier}
     </span>
   );
 }
 
 function SummaryCard({ label, value, icon, highlight, warning }) {
-  let bg = 'bg-white';
-  if (highlight) bg = 'bg-green-50 border-green-200';
-  if (warning) bg = 'bg-red-50 border-red-200';
+  let bg     = 'rgba(255,255,255,0.03)';
+  let border = 'rgba(255,255,255,0.08)';
+  if (highlight) { bg = 'rgba(0,232,123,0.06)';   border = 'rgba(0,232,123,0.2)'; }
+  if (warning)   { bg = 'rgba(255,77,106,0.06)';  border = 'rgba(255,77,106,0.2)'; }
 
   return (
-    <div className={`${bg} rounded-xl border border-gray-200 p-4 text-center`}>
-      <div className="text-2xl mb-1">{icon}</div>
-      <div className="text-3xl font-bold text-[#1A1A2E]">{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: 16, textAlign: 'center' }}>
+      <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', fontFamily: 'var(--font-title)', letterSpacing: '-0.02em' }}>{value}</div>
+      <div style={{ fontSize: 11, color: '#7A7A85', marginTop: 4, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{label}</div>
     </div>
   );
 }
 
 function StatusBadge({ status }) {
-  if (status === 'completed') {
-    return <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>;
-  }
-  if (status === 'blocked') {
-    return <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Brand Safety Block</span>;
-  }
-  if (status === 'error') {
-    return <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Error</span>;
-  }
-  return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">{status}</span>;
+  const map = {
+    completed: { bg: 'rgba(0,232,123,0.15)',  color: '#00E87B',  label: 'Completed' },
+    blocked:   { bg: 'rgba(255,77,106,0.15)', color: '#FF4D6A',  label: 'Brand Safety Block' },
+    error:     { bg: 'rgba(255,77,106,0.15)', color: '#FF4D6A',  label: 'Error' },
+  };
+  const s = map[status] || { bg: 'rgba(255,255,255,0.08)', color: '#C8C8D0', label: status };
+  return (
+    <span style={{ padding: '4px 12px', background: s.bg, color: s.color, borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+      {s.label}
+    </span>
+  );
 }
 
 function BrandSafetyBanner({ safety }) {
-  const isBlock = safety.action === 'block';
-  const bg = isBlock ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';
-  const textColor = isBlock ? 'text-red-700' : 'text-amber-700';
-  const icon = isBlock ? '🚫' : '⚠️';
-  const label = isBlock ? 'Brand Safety Block' : 'Brand Safety Warning';
+  const isBlock   = safety.action === 'block';
+  const bg        = isBlock ? 'rgba(255,77,106,0.08)'   : 'rgba(255,184,77,0.08)';
+  const border    = isBlock ? 'rgba(255,77,106,0.25)'   : 'rgba(255,184,77,0.25)';
+  const textColor = isBlock ? '#FF4D6A'                 : '#FFB84D';
+  const icon      = isBlock ? '🚫' : '⚠️';
+  const label     = isBlock ? 'Brand Safety Block' : 'Brand Safety Warning';
 
   const blockViolations = safety.violations.filter(v => v.severity === 'block');
-  const warnViolations = safety.violations.filter(v => v.severity === 'warn');
+  const warnViolations  = safety.violations.filter(v => v.severity === 'warn');
 
   return (
-    <div className={`rounded-lg border ${bg} p-3 mb-3`}>
-      <div className={`flex items-center gap-2 font-semibold text-sm ${textColor} mb-1`}>
-        <span>{icon}</span>
-        <span>{label}</span>
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: 12, marginBottom: 12, fontFamily: 'var(--font-body)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 13, color: textColor, marginBottom: 4 }}>
+        <span>{icon}</span><span>{label}</span>
       </div>
-      <p className={`text-xs ${textColor} mb-2`}>{safety.summary}</p>
+      <p style={{ fontSize: 12, color: textColor, marginBottom: 8 }}>{safety.summary}</p>
 
       {blockViolations.length > 0 && (
-        <div className="mb-1.5">
-          <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Blocked categories</span>
-          <div className="flex flex-wrap gap-1 mt-1">
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#FF4D6A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Blocked categories</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
             {blockViolations.map((v, i) => (
-              <span key={i} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
-                {v.category.replace(/_/g, ' ')} ({v.matchCount} matches)
+              <span key={i} style={{ padding: '2px 8px', background: 'rgba(255,77,106,0.15)', color: '#FF4D6A', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
+                {v.category.replace(/_/g, ' ')} ({v.matchCount})
               </span>
             ))}
           </div>
@@ -199,11 +199,11 @@ function BrandSafetyBanner({ safety }) {
 
       {warnViolations.length > 0 && (
         <div>
-          <span className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Flagged categories</span>
-          <div className="flex flex-wrap gap-1 mt-1">
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#FFB84D', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Flagged categories</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
             {warnViolations.map((v, i) => (
-              <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
-                {v.category.replace(/_/g, ' ')} ({v.matchCount} matches)
+              <span key={i} style={{ padding: '2px 8px', background: 'rgba(255,184,77,0.15)', color: '#FFB84D', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
+                {v.category.replace(/_/g, ' ')} ({v.matchCount})
               </span>
             ))}
           </div>

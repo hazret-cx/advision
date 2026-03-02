@@ -22,7 +22,7 @@ function handlePositionStyle(key) {
     position: 'absolute',
     width: 10,
     height: 10,
-    background: '#00B4D8',
+    background: '#5C26FF',
     border: '2px solid #fff',
     borderRadius: 2,
     boxSizing: 'border-box',
@@ -323,12 +323,12 @@ export default function MockupEditor({
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: '#1A1A2E', borderBottom: '1px solid #2a2a4a', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: '#0A0A0F', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
         <span style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>Edit Mockup</span>
 
         <button
           onClick={toggleEraseMode}
-          style={{ padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12, background: eraseMode ? '#ef4444' : '#2a2a4a', color: eraseMode ? '#fff' : '#aaa' }}
+          style={{ padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12, background: eraseMode ? '#ef4444' : 'rgba(255,255,255,0.08)', color: eraseMode ? '#fff' : '#aaa' }}
         >
           {eraseMode ? '✕ Stop Erasing' : '⬜ Erase Overlay'}
         </button>
@@ -381,7 +381,7 @@ export default function MockupEditor({
                     width:  r.w * scale,
                     height: r.h * scale,
                     boxSizing: 'border-box',
-                    border: isActive   ? '2px solid #00B4D8'
+                    border: isActive   ? '2px solid #5C26FF'
                           : isCustom  ? '2px solid #a78bfa'
                           : hasCreative ? '2px solid #3b82f6'
                           : '2px dashed #666',
@@ -404,7 +404,7 @@ export default function MockupEditor({
                         <div style={{ position: 'absolute', bottom: 2, left: 2, right: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', padding: '1px 4px', borderRadius: 2 }}>
                           <span>
                             {p.fitMode}
-                            {isCustom && <span style={{ marginLeft: 4, color: '#a78bfa' }}>· repositioned</span>}
+                            {isCustom && <span style={{ marginLeft: 4, color: '#8A5CFF' }}>· repositioned</span>}
                           </span>
                           <button
                             onClick={(e) => handleRemovePlacement(idx, e)}
@@ -451,10 +451,10 @@ export default function MockupEditor({
         </div>
 
         {/* ── Right panel ── */}
-        <div style={{ width: 230, flexShrink: 0, background: '#111122', borderLeft: '1px solid #2a2a4a', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ width: 230, flexShrink: 0, background: '#121218', borderLeft: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Panel header */}
-          <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid #2a2a4a', color: '#bbb', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+          <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#bbb', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
             {eraseMode ? 'Erase Overlay' : activeSlot !== null ? `Slot ${activeSlot + 1}` : 'Creatives'}
           </div>
 
@@ -472,7 +472,7 @@ export default function MockupEditor({
                   Clear All Erasures
                 </button>
               )}
-              <button onClick={toggleEraseMode} style={{ background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 5, padding: '6px 0', cursor: 'pointer', fontSize: 12 }}>
+              <button onClick={toggleEraseMode} style={{ background: 'rgba(255,255,255,0.08)', color: '#ccc', border: 'none', borderRadius: 5, padding: '6px 0', cursor: 'pointer', fontSize: 12 }}>
                 Done — Back to Slots
               </button>
             </div>
@@ -482,7 +482,7 @@ export default function MockupEditor({
           {!eraseMode && activeSlot !== null && (
             <>
               {/* Position / size readout */}
-              <div style={{ padding: '10px 14px', borderBottom: '1px solid #2a2a4a', flexShrink: 0 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: 11, color: '#888', marginBottom: 6 }}>
                   <span>X</span><span style={{ color: '#ccc', fontVariantNumeric: 'tabular-nums' }}>{activeRect.x}px</span>
                   <span>Y</span><span style={{ color: '#ccc', fontVariantNumeric: 'tabular-nums' }}>{activeRect.y}px</span>
@@ -492,7 +492,7 @@ export default function MockupEditor({
                 {activeIsCustom && (
                   <button
                     onClick={() => handleResetPosition(activeSlot)}
-                    style={{ width: '100%', padding: '4px 0', background: '#1c1c38', color: '#a78bfa', border: '1px solid #3a2a6a', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+                    style={{ width: '100%', padding: '4px 0', background: 'rgba(92,38,255,0.1)', color: '#8A5CFF', border: '1px solid rgba(92,38,255,0.3)', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
                   >
                     ↩ Reset to detected position
                   </button>
@@ -501,7 +501,7 @@ export default function MockupEditor({
 
               {/* Drag/resize hint (only when creative assigned) */}
               {activePlacement?.creativeId && (
-                <div style={{ padding: '6px 14px', borderBottom: '1px solid #2a2a4a', flexShrink: 0 }}>
+                <div style={{ padding: '6px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
                   <p style={{ color: '#444', fontSize: 11, margin: 0, lineHeight: 1.5 }}>
                     Drag to move &middot; Drag corner / edge handles to resize
                   </p>
@@ -509,12 +509,12 @@ export default function MockupEditor({
               )}
 
               {/* Fit mode */}
-              <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid #2a2a4a', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
                 {FIT_MODES.map((mode) => (
                   <button
                     key={mode}
                     onClick={() => handleFitMode(mode)}
-                    style={{ flex: 1, padding: '4px 0', fontSize: 11, fontWeight: 500, borderRadius: 4, border: 'none', cursor: 'pointer', background: activePlacement?.fitMode === mode ? '#00B4D8' : '#2a2a4a', color: activePlacement?.fitMode === mode ? '#fff' : '#aaa' }}
+                    style={{ flex: 1, padding: '4px 0', fontSize: 11, fontWeight: 500, borderRadius: 4, border: 'none', cursor: 'pointer', background: activePlacement?.fitMode === mode ? '#5C26FF' : 'rgba(255,255,255,0.08)', color: activePlacement?.fitMode === mode ? '#fff' : '#aaa' }}
                   >
                     {mode.charAt(0).toUpperCase() + mode.slice(1)}
                   </button>
@@ -532,13 +532,13 @@ export default function MockupEditor({
                     <button
                       key={creative.id}
                       onClick={() => handleCreativeAssign(creative)}
-                      style={{ background: '#1e1e38', border: activePlacement?.creativeId === creative.id ? '2px solid #00B4D8' : '2px solid #2a2a4a', borderRadius: 6, padding: 6, cursor: 'pointer', textAlign: 'left' }}
+                      style={{ background: 'rgba(255,255,255,0.04)', border: activePlacement?.creativeId === creative.id ? '2px solid #5C26FF' : '2px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: 6, cursor: 'pointer', textAlign: 'left' }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`/api/creative-image?id=${encodeURIComponent(creative.filename)}`}
                         alt={creative.original_name}
-                        style={{ width: '100%', height: 60, objectFit: 'contain', display: 'block', background: '#0a0a1a', borderRadius: 3 }}
+                        style={{ width: '100%', height: 60, objectFit: 'contain', display: 'block', background: '#0A0A0F', borderRadius: 3 }}
                       />
                       <div style={{ marginTop: 4, fontSize: 10, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {creative.width}×{creative.height}
@@ -555,7 +555,7 @@ export default function MockupEditor({
           )}
 
           {/* ── Export ── */}
-          <div style={{ padding: '12px 14px', borderTop: '1px solid #2a2a4a', flexShrink: 0 }}>
+          <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
             {exportError && (
               <div style={{ marginBottom: 8, fontSize: 11, color: '#f87171', background: '#2a1010', borderRadius: 4, padding: '4px 8px' }}>
                 {exportError}
@@ -564,7 +564,7 @@ export default function MockupEditor({
             <button
               onClick={handleExport}
               disabled={exporting}
-              style={{ width: '100%', padding: '9px 0', background: exporting ? '#2a2a4a' : '#00B4D8', color: exporting ? '#666' : '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: exporting ? 'not-allowed' : 'pointer' }}
+              style={{ width: '100%', padding: '9px 0', background: exporting ? 'rgba(255,255,255,0.08)' : '#5C26FF', color: exporting ? '#666' : '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: 13, cursor: exporting ? 'not-allowed' : 'pointer' }}
             >
               {exporting ? 'Exporting…' : 'Export PNG'}
             </button>
