@@ -1,5 +1,6 @@
 /**
  * AdVision — Ad Slot Detection Engine
+ * @requires ./cmp/condeNast
  *
  * Scans a publisher page's DOM for ad containers using a priority-ordered
  * set of selectors and heuristics. Returns an array of detected slots with
@@ -141,14 +142,20 @@ function buildDetectionScript() {
  * @returns {Promise<Array>} Detected ad slots
  */
 async function detectAdSlots(page, url) {
+  const { isCondeNast, handleCondeNastConsent } = require('./cmp/condeNast');
+
   // Navigate with realistic settings
   await page.goto(url, {
     waitUntil: 'domcontentloaded',
     timeout: 30000,
   });
 
-  // Try to dismiss cookie/consent banners
-  await dismissConsentBanners(page);
+  // Use publication-specific CMP handler if available, otherwise generic
+  if (isCondeNast(url)) {
+    await handleCondeNastConsent(page);
+  } else {
+    await dismissConsentBanners(page);
+  }
 
   // Wait for ads to load (network idle + extra buffer)
   try {

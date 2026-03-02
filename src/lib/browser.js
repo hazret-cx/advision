@@ -6,6 +6,7 @@
  */
 
 const { chromium } = require('playwright');
+const { SOURCEPOINT_PRESEED_SCRIPT } = require('./cmp/condeNast');
 
 let _browser = null;
 
@@ -106,6 +107,8 @@ async function createPage() {
 
   // Inject consent signals before any page script runs
   await context.addInitScript(CONSENT_INIT_SCRIPT);
+  // Inject Sourcepoint/Condé Nast pre-seed on top
+  await context.addInitScript(SOURCEPOINT_PRESEED_SCRIPT);
 
   // Block heavy media and fonts to speed up page load (keep images for visual accuracy)
   await context.route('**/*.{mp4,webm,ogg,mp3,wav}', route => route.abort());
