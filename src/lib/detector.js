@@ -176,42 +176,75 @@ async function detectAdSlots(page, url) {
  */
 async function dismissConsentBanners(page) {
   const consentSelectors = [
-    // Common consent button patterns
+    // Sourcepoint (Condé Nast — Vogue, GQ, Wired, Vanity Fair, etc.)
+    '.sp_choice_type_ACCEPT_ALL',
+    'button[title="Accept all"]',
+    'button[title="Accept All"]',
+    '[data-choice-type="ACCEPT_ALL"]',
+
+    // OneTrust (used widely — Condé Nast also layers this)
+    '#onetrust-accept-btn-handler',
+    '.onetrust-accept-btn-handler',
+
+    // Quantcast CMP
+    '.qc-cmp2-summary-buttons button:first-child',
+    '[data-tmdatatrack="consent-accept"]',
+
+    // Functional (Financial Times, Guardian)
+    '.fc-cta-consent',
+    '.js-accept-cookies',
+    '[data-action="accept"]',
+
+    // Generic attribute patterns
+    'button[id*="accept-all"]',
     'button[id*="accept"]',
     'button[id*="consent"]',
+    'button[class*="accept-all"]',
     'button[class*="accept"]',
     'button[class*="consent"]',
     'button[data-testid*="accept"]',
     '[class*="cookie"] button',
     '[id*="cookie"] button',
-    '#onetrust-accept-btn-handler',
-    '.fc-cta-consent',
-    '.js-accept-cookies',
-    '[data-action="accept"]',
-    'button:has-text("Accept")',
+
+    // Text-based fallbacks (most specific first to avoid false positives)
+    'button:has-text("Accept all")',
     'button:has-text("Accept All")',
     'button:has-text("Accept Cookies")',
+    'button:has-text("Accept")',
     'button:has-text("I Agree")',
+    'button:has-text("Agree")',
+    'button:has-text("Allow all")',
+    'button:has-text("Allow All")',
+    'button:has-text("Allow")',
     'button:has-text("Got it")',
     'button:has-text("OK")',
-    'button:has-text("Allow")',
-    'button:has-text("Allow All")',
   ];
 
-  const deadline = Date.now() + 5000; // 5s total budget
+  // Give the consent dialog time to render before we start looking
+  await page.waitForTimeout(1500);
 
-  for (const selector of consentSelectors) {
+  const deadline = Date.now() + 8000;
+
+  // Try in the main frame first, then in any child frames (some CMPs load in iframes)
+  const frames = [page, ...page.frames().filter(f => f !== page.mainFrame())];
+
+  for (const frame of frames) {
     if (Date.now() >= deadline) break;
 
-    try {
-      const btn = await page.$(selector);
-      if (btn) {
-        await btn.click({ timeout: 500 });
-        await page.waitForTimeout(500);
-        break; // early-exit on first successful click
+    for (const selector of consentSelectors) {
+      if (Date.now() >= deadline) break;
+
+      try {
+        const btn = await frame.$(selector);
+        if (btn) {
+          await btn.click({ timeout: 1000 });
+          // Wait for the overlay to animate out before continuing
+          await page.waitForTimeout(1500);
+          return; // done — exit both loops
+        }
+      } catch {
+        // ignore — move to next selector
       }
-    } catch {
-      // ignore — move to next selector
     }
   }
 }
