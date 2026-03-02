@@ -161,12 +161,23 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(300);
 
-  await page.screenshot({
-    path: filepath,
-    fullPage: true,
-    type: 'jpeg',
-    quality: 85,
-  });
+  try {
+    await page.screenshot({
+      path: filepath,
+      fullPage: true,
+      type: 'jpeg',
+      quality: 85,
+    });
+  } catch {
+    // Full-page screenshot can crash headless Chrome on heavy pages (e.g. BBC).
+    // Fall back to viewport-only screenshot.
+    await page.screenshot({
+      path: filepath,
+      fullPage: false,
+      type: 'jpeg',
+      quality: 85,
+    });
+  }
 
   return path.relative(process.cwd(), filepath);
 }

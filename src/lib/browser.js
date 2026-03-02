@@ -14,6 +14,8 @@ const BROWSER_OPTIONS = {
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
     '--disable-blink-features=AutomationControlled',
     '--window-size=1440,900',
   ],
