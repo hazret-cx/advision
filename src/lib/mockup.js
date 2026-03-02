@@ -48,6 +48,14 @@ async function generateMockup(campaignId, url, creatives) {
     // 1. Launch browser
     ({ page, context } = await createPage());
 
+    // Track page crashes so we can bail out cleanly instead of hitting
+    // "Target page, context or browser has been closed" mid-pipeline.
+    let pageCrashed = false;
+    page.on('crash', () => {
+      pageCrashed = true;
+      console.error(`Page crashed for ${url}`);
+    });
+
     // 2. Detect ad slots
     const slots = await detectAdSlots(page, url);
 
@@ -58,7 +66,7 @@ async function generateMockup(campaignId, url, creatives) {
         slots_matched: 0,
       });
 
-      await cleanPageForScreenshot(page);
+      if (!pageCrashed) await cleanPageForScreenshot(page);
       const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
       db.updateMockup(mockupId, { screenshot_path: screenshotPath });
 
@@ -107,8 +115,12 @@ async function generateMockup(campaignId, url, creatives) {
       );
     }
 
+    if (pageCrashed) throw new Error(`Page crashed while processing ${url}`);
+
     // 5. Strip any remaining overlays / paywalls before screenshotting
     await cleanPageForScreenshot(page);
+
+    if (pageCrashed) throw new Error(`Page crashed during cleanup for ${url}`);
 
     // 6. Capture clean screenshot
     const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
@@ -172,8 +184,11 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
       type: 'jpeg',
       quality: 85,
     });
-  } catch {
-    // Full-page screenshot can crash headless Chrome on heavy pages (e.g. BBC).
+  } catch (err) {
+    // If the page itself is gone, don't retry — re-throw so the caller records
+    // a proper error instead of a second "closed" crash.
+    if (/closed|crashed|destroyed/i.test(err.message || '')) throw err;
+    // Full-page screenshot can OOM headless Chrome on heavy pages (e.g. BBC).
     // Fall back to viewport-only screenshot.
     await page.screenshot({
       path: filepath,

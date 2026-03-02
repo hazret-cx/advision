@@ -499,8 +499,13 @@ async function cleanPageForScreenshot(page) {
 
     // ── 2. Heuristic — hide large fixed/sticky elements with high z-index ─
     // (catches paywall gates that don't use predictable class names)
+    // Cap at 1500 block-level elements to avoid forcing getComputedStyle on
+    // every node on heavy pages (which can crash the tab before screenshot).
     try {
-      document.querySelectorAll('*').forEach(el => {
+      const candidates = Array.from(
+        document.querySelectorAll('div, aside, section, nav, header, footer, form')
+      ).slice(0, 1500);
+      candidates.forEach(el => {
         const s = window.getComputedStyle(el);
         if (s.position !== 'fixed' && s.position !== 'sticky') return;
         const zIndex = parseInt(s.zIndex) || 0;
