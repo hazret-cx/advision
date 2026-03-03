@@ -29,18 +29,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No creatives uploaded for this campaign. Upload creatives first.' }, { status: 400 });
     }
 
-    // Normalize URLs
-    const normalizedUrls = urls.map(u => {
-      if (!u.startsWith('http://') && !u.startsWith('https://')) {
-        return `https://${u}`;
-      }
-      return u;
+    // Normalise — accept both plain strings (legacy) and { url, fullPage } objects
+    const normalizedEntries = urls.map(u => {
+      const raw      = typeof u === 'string' ? u : u.url;
+      const fullPage = typeof u === 'object' ? !!u.fullPage : false;
+      const href     = raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`;
+      return { url: href, fullPage };
     });
 
     // Process each URL
     const results = [];
-    for (const url of normalizedUrls) {
-      const result = await generateMockup(campaignId, url, creatives);
+    for (const entry of normalizedEntries) {
+      const result = await generateMockup(campaignId, entry.url, creatives, { fullPage: entry.fullPage });
       results.push(result);
     }
 

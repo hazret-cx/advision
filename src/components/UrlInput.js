@@ -11,18 +11,26 @@ const EXAMPLE_URLS = [
 ];
 
 export default function UrlInput({ onScrape, loading }) {
-  const [urls, setUrls] = useState(['']);
+  const [entries, setEntries] = useState([{ url: '', fullPage: false }]);
 
-  const addUrl    = useCallback(() => { if (urls.length < 10) setUrls(prev => [...prev, '']); }, [urls]);
-  const removeUrl = useCallback((i) => setUrls(prev => prev.filter((_, j) => j !== i)), []);
-  const updateUrl = useCallback((i, val) => setUrls(prev => { const u = [...prev]; u[i] = val; return u; }), []);
+  const addEntry    = useCallback(() => {
+    if (entries.length < 10) setEntries(prev => [...prev, { url: '', fullPage: false }]);
+  }, [entries]);
+
+  const removeEntry = useCallback((i) => setEntries(prev => prev.filter((_, j) => j !== i)), []);
+
+  const updateUrl = useCallback((i, val) =>
+    setEntries(prev => { const e = [...prev]; e[i] = { ...e[i], url: val }; return e; }), []);
+
+  const toggleFullPage = useCallback((i) =>
+    setEntries(prev => { const e = [...prev]; e[i] = { ...e[i], fullPage: !e[i].fullPage }; return e; }), []);
 
   const handleScrape = useCallback(() => {
-    const valid = urls.filter(u => u.trim().length > 0);
+    const valid = entries.filter(e => e.url.trim().length > 0);
     if (valid.length > 0) onScrape(valid);
-  }, [urls, onScrape]);
+  }, [entries, onScrape]);
 
-  const validCount = urls.filter(u => u.trim().length > 0).length;
+  const validCount = entries.filter(e => e.url.trim().length > 0).length;
 
   const inputStyle = {
     flex:         1,
@@ -45,36 +53,81 @@ export default function UrlInput({ onScrape, loading }) {
         Add the publisher page URLs where you want to preview ad placements. Up to 10 URLs per session.
       </p>
 
+      {/* ── Column headers ── */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, paddingLeft: 32 }}>
+        <span style={{ flex: 1, fontSize: 11, color: '#7A7A85', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+          URL
+        </span>
+        <span style={{ fontSize: 11, color: '#7A7A85', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, width: 88, textAlign: 'center' }}>
+          Full Page
+        </span>
+        <span style={{ width: 20 }} />
+      </div>
+
       {/* ── URL inputs ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-        {urls.map((url, i) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+        {entries.map((entry, i) => (
           <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#7A7A85', width: 20, textAlign: 'right', fontFamily: 'var(--font-body)' }}>{i + 1}.</span>
+            <span style={{ fontSize: 12, color: '#7A7A85', width: 20, textAlign: 'right', fontFamily: 'var(--font-body)', flexShrink: 0 }}>{i + 1}.</span>
             <input
               type="text"
-              value={url}
+              value={entry.url}
               onChange={e => updateUrl(i, e.target.value)}
               placeholder="e.g. bloomberg.com/technology"
               style={inputStyle}
               onFocus={e => { e.target.style.borderColor = '#5C26FF'; e.target.style.boxShadow = '0 0 0 3px rgba(92,38,255,0.15)'; }}
               onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }}
             />
-            {urls.length > 1 && (
+
+            {/* ── Full Page toggle ── */}
+            <button
+              onClick={() => toggleFullPage(i)}
+              title={entry.fullPage ? 'Full page screenshot — slower, may crash on heavy sites' : 'Viewport only — faster and more stable'}
+              style={{
+                width:        88,
+                padding:      '8px 0',
+                borderRadius: 999,
+                border:       entry.fullPage ? '1px solid #5C26FF' : '1px solid rgba(255,255,255,0.12)',
+                background:   entry.fullPage ? 'rgba(92,38,255,0.2)' : 'rgba(255,255,255,0.04)',
+                color:        entry.fullPage ? '#A07BFF' : '#7A7A85',
+                fontFamily:   'var(--font-body)',
+                fontSize:     11,
+                fontWeight:   600,
+                cursor:       'pointer',
+                flexShrink:   0,
+                transition:   'all 0.15s',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {entry.fullPage ? '↕ Full' : '▭ View'}
+            </button>
+
+            {entries.length > 1 ? (
               <button
-                onClick={() => removeUrl(i)}
-                style={{ background: 'none', border: 'none', color: '#7A7A85', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                onClick={() => removeEntry(i)}
+                style={{ background: 'none', border: 'none', color: '#7A7A85', cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0 }}
                 onMouseOver={e => e.target.style.color = '#FF4D6A'}
                 onMouseOut={e => e.target.style.color = '#7A7A85'}
               >✕</button>
+            ) : (
+              <span style={{ width: 20, flexShrink: 0 }} />
             )}
           </div>
         ))}
       </div>
 
+      {/* ── Full page hint ── */}
+      {entries.some(e => e.fullPage) && (
+        <p style={{ fontSize: 12, color: '#A07BFF', marginBottom: 16, fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>↕</span>
+          <span>Full page is enabled for {entries.filter(e => e.fullPage && e.url.trim()).length} URL{entries.filter(e => e.fullPage && e.url.trim()).length !== 1 ? 's' : ''}. Avoid on ad-heavy sites like GQ, Cosmopolitan or Vogue — use viewport only there.</span>
+        </p>
+      )}
+
       {/* ── Add URL ── */}
-      {urls.length < 10 && (
+      {entries.length < 10 && (
         <button
-          onClick={addUrl}
+          onClick={addEntry}
           style={{
             background:  'none',
             border:      'none',
@@ -105,9 +158,9 @@ export default function UrlInput({ onScrape, loading }) {
             <button
               key={ex}
               onClick={() => {
-                const emptyIdx = urls.findIndex(u => u.trim() === '');
+                const emptyIdx = entries.findIndex(e => e.url.trim() === '');
                 if (emptyIdx >= 0) updateUrl(emptyIdx, ex);
-                else if (urls.length < 10) setUrls(prev => [...prev, ex]);
+                else if (entries.length < 10) setEntries(prev => [...prev, { url: ex, fullPage: false }]);
               }}
               style={{
                 padding:      '5px 12px',

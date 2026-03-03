@@ -23,7 +23,7 @@ const SCREENSHOTS_DIR = path.join(process.cwd(), 'screenshots');
  * @param {Array} creatives - Creative objects from DB
  * @returns {Object} Mockup result with screenshot path and match report
  */
-async function generateMockup(campaignId, url, creatives) {
+async function generateMockup(campaignId, url, creatives, options = {}) {
   const mockupId = uuidv4();
   let domain;
 
@@ -67,7 +67,7 @@ async function generateMockup(campaignId, url, creatives) {
       });
 
       if (!pageCrashed) await cleanPageForScreenshot(page);
-      const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
+      const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain, options.fullPage);
       db.updateMockup(mockupId, { screenshot_path: screenshotPath });
 
       return {
@@ -123,7 +123,7 @@ async function generateMockup(campaignId, url, creatives) {
     if (pageCrashed) throw new Error(`Page crashed during cleanup for ${url}`);
 
     // 6. Capture clean screenshot
-    const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain);
+    const screenshotPath = await captureScreenshot(page, campaignId, mockupId, domain, options.fullPage);
 
     db.updateMockup(mockupId, {
       status: 'completed',
@@ -164,7 +164,7 @@ async function generateMockup(campaignId, url, creatives) {
 /**
  * Capture a full-page screenshot.
  */
-async function captureScreenshot(page, campaignId, mockupId, domain) {
+async function captureScreenshot(page, campaignId, mockupId, domain, fullPage = false) {
   const campaignDir = path.join(SCREENSHOTS_DIR, campaignId);
   if (!fs.existsSync(campaignDir)) {
     fs.mkdirSync(campaignDir, { recursive: true });
@@ -190,7 +190,7 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   try {
     await page.screenshot({
       path: filepath,
-      fullPage: true,
+      fullPage,
       type: 'jpeg',
       quality: 85,
       timeout: 30000,
@@ -199,15 +199,19 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
     // If the page itself is gone, don't retry — re-throw so the caller records
     // a proper error instead of a second "closed" crash.
     if (/closed|crashed|destroyed/i.test(err.message || '')) throw err;
-    // Full-page screenshot can OOM headless Chrome on heavy pages (e.g. BBC).
-    // Fall back to viewport-only screenshot.
-    await page.screenshot({
-      path: filepath,
-      fullPage: false,
-      type: 'jpeg',
-      quality: 85,
-      timeout: 30000,
-    });
+    // Full-page screenshot can OOM headless Chrome on heavy pages.
+    // If full-page was requested and failed, fall back to viewport-only.
+    if (fullPage) {
+      await page.screenshot({
+        path: filepath,
+        fullPage: false,
+        type: 'jpeg',
+        quality: 85,
+        timeout: 30000,
+      });
+    } else {
+      throw err;
+    }
   }
 
   return path.relative(process.cwd(), filepath);
