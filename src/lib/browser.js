@@ -114,6 +114,16 @@ async function createPage() {
   await context.route('**/*.{mp4,webm,ogg,mp3,wav}', route => route.abort());
   await context.route('**/*.{woff,woff2,ttf,otf,eot}', route => route.abort());
 
+  // Block ad networks and trackers. These third-party scripts have persistent
+  // connections and fire repeatedly, which exhausts renderer memory and causes
+  // SIGSEGV crashes on heavy pages (GQ, Cosmo, Elle, etc.) during screenshot.
+  // Ad slot detection still works — GPT containers and class/id patterns are
+  // embedded in the page HTML and don't require the ad scripts to load.
+  const AD_DOMAIN_RE = /doubleclick\.net|googlesyndication\.com|adsafeprotected\.com|amazon-adsystem\.com|pubmatic\.com|rubiconproject\.com|criteo\.com|outbrain\.com|taboola\.com|scorecardresearch\.com|chartbeat\.com|moatads\.com|adnxs\.com|safeframe\.|pagead\//i;
+  await context.route('**/*', route =>
+    AD_DOMAIN_RE.test(route.request().url()) ? route.abort() : route.continue()
+  );
+
   const page = await context.newPage();
   return { page, context };
 }

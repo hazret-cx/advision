@@ -177,12 +177,23 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(300);
 
+  // Pause videos and freeze CSS animations before screenshotting.
+  // On ad-heavy pages, running videos and animations hold GPU/memory resources
+  // that can push the renderer over the edge during the full-page capture.
+  await page.evaluate(() => {
+    document.querySelectorAll('video').forEach(v => { try { v.pause(); v.src = ''; } catch {} });
+    const s = document.createElement('style');
+    s.textContent = '*, *::before, *::after { animation-play-state: paused !important; transition: none !important; }';
+    document.head.appendChild(s);
+  }).catch(() => {});
+
   try {
     await page.screenshot({
       path: filepath,
       fullPage: true,
       type: 'jpeg',
       quality: 85,
+      timeout: 30000,
     });
   } catch (err) {
     // If the page itself is gone, don't retry — re-throw so the caller records
@@ -195,6 +206,7 @@ async function captureScreenshot(page, campaignId, mockupId, domain) {
       fullPage: false,
       type: 'jpeg',
       quality: 85,
+      timeout: 30000,
     });
   }
 
