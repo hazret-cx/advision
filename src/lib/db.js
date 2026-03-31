@@ -98,6 +98,20 @@ function initTables(db) {
   if (!mockupCols.some(c => c.name === 'brand_safety_result')) {
     db.exec('ALTER TABLE mockups ADD COLUMN brand_safety_result TEXT');
   }
+
+  // Migration: type and duration_seconds on mockups
+  if (!mockupCols.some(c => c.name === 'type')) {
+    db.exec("ALTER TABLE mockups ADD COLUMN type TEXT NOT NULL DEFAULT 'image'");
+  }
+  if (!mockupCols.some(c => c.name === 'duration_seconds')) {
+    db.exec('ALTER TABLE mockups ADD COLUMN duration_seconds INTEGER');
+  }
+
+  // Migration: duration_seconds on creatives
+  const creativeCols = db.prepare('PRAGMA table_info(creatives)').all();
+  if (!creativeCols.some(c => c.name === 'duration_seconds')) {
+    db.exec('ALTER TABLE creatives ADD COLUMN duration_seconds INTEGER');
+  }
 }
 
 // ─── Campaign queries ───────────────────────────────────────────────
@@ -120,12 +134,12 @@ function listCampaigns() {
 
 // ─── Creative queries ───────────────────────────────────────────────
 
-function addCreative(id, campaignId, filename, originalName, width, height, filePath, fileSize, mimeType) {
+function addCreative(id, campaignId, filename, originalName, width, height, filePath, fileSize, mimeType, durationSeconds = null) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO creatives (id, campaign_id, filename, original_name, width, height, file_path, file_size, mime_type)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, campaignId, filename, originalName, width, height, filePath, fileSize, mimeType);
+    INSERT INTO creatives (id, campaign_id, filename, original_name, width, height, file_path, file_size, mime_type, duration_seconds)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, campaignId, filename, originalName, width, height, filePath, fileSize, mimeType, durationSeconds);
   return getCreative(id);
 }
 
