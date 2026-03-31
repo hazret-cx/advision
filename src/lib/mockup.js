@@ -244,12 +244,12 @@ async function generateVideoMockup(campaignId, url, videoCreative, imageCreative
     // Intercept a fake URL on the publisher's origin to serve the creative locally.
     // Playwright intercepts ALL network requests regardless of hostname.
     const creativeFilePath = path.join(process.cwd(), 'uploads', videoCreative.filename);
+    const creativeBuffer = fs.readFileSync(creativeFilePath);
     await page.route(/\/__advision_creative__\//, (route) => {
-      const buffer = fs.readFileSync(creativeFilePath);
       route.fulfill({
         status: 200,
         contentType: 'video/mp4',
-        body: buffer,
+        body: creativeBuffer,
         headers: { 'Access-Control-Allow-Origin': '*' },
       });
     });
@@ -277,12 +277,15 @@ async function generateVideoMockup(campaignId, url, videoCreative, imageCreative
     const slots = await detectVideoSlots(page);
 
     // If no useful slot found, fall back to image mockup
-    if (slots.length === 0 && imageCreatives.length > 0) {
+    if (slots.length === 0) {
       await context.close();
       context = null;
       console.warn(`[VideoMockup] No video slots found for ${url} — falling back to image mockup`);
-      db.updateMockup(mockupId, { type: 'image' });
-      return generateMockup(campaignId, url, imageCreatives, options);
+      db.updateMockup(mockupId, { status: 'error', error_message: 'No video player slots detected — fell back to image pipeline' });
+      if (imageCreatives.length > 0) {
+        return generateMockup(campaignId, url, imageCreatives, options);
+      }
+      return { mockupId, url, domain, type: 'video', status: 'error', error: 'No video player slots detected on this page' };
     }
 
     // Use the first detected slot
