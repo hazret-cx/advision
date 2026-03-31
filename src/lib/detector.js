@@ -101,6 +101,34 @@ function buildDetectionScript() {
       addSlot(el, 'video-player');
     });
 
+    // 0d. Outstream video placement containers (e.g. investing.com STN provider)
+    // These containers are empty (0×0) until the ad script fires, so we force
+    // standard outstream dimensions (640×360) when the element has no size yet.
+    document.querySelectorAll('[data-placement*="video"], [data-placement*="Video"]').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      const w = rect.width > 0 ? Math.round(rect.width) : 640;
+      const h = rect.height > 0 ? Math.round(rect.height) : 360;
+      let selector = '';
+      if (el.id) {
+        selector = `#${el.id}`;
+      } else {
+        selector = el.dataset.placement ? `[data-placement="${el.dataset.placement}"]` : el.tagName.toLowerCase();
+      }
+      const key = `${Math.round(rect.x)}-${Math.round(rect.y)}-${w}-${h}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        slots.push({
+          selector,
+          x: Math.round(rect.x + window.scrollX),
+          y: Math.round(rect.y + window.scrollY),
+          width: w,
+          height: h,
+          source: 'video-player',
+          visible: rect.top < window.innerHeight + 500,
+        });
+      }
+    });
+
     // ── 1. Google Publisher Tag (GPT) ───────────────────────────────
     document.querySelectorAll('[id^="div-gpt-ad"], [data-google-query-id]').forEach(el => {
       addSlot(el, 'gpt');
