@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-export const maxDuration = 60; // Allow up to 60s for this route
+export const maxDuration = 300; // Allow up to 5 minutes for video recording + conversion
 
 export async function POST(request) {
   try {
-    const { campaignId, urls } = await request.json();
+    const { campaignId, urls, recordingMode = 'fixed', durationSeconds = 15 } = await request.json();
 
     if (!campaignId) {
       return NextResponse.json({ error: 'campaignId is required' }, { status: 400 });
@@ -18,18 +18,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Maximum 10 URLs per request' }, { status: 400 });
     }
 
-    // Lazy imports to avoid issues
     const db = require('../../../lib/db');
-    const { generateMockup } = require('../../../lib/mockup');
+    const { generateMockup, generateVideoMockup } = require('../../../lib/mockup');
 
-    // Get creatives for this campaign
     const creatives = db.listCreatives(campaignId);
 
     if (creatives.length === 0) {
       return NextResponse.json({ error: 'No creatives uploaded for this campaign. Upload creatives first.' }, { status: 400 });
     }
 
-    // Normalise — accept both plain strings (legacy) and { url, fullPage } objects
+    // Separate video and image creatives
+    const videoCreatives = creatives.filter(c => c.mime_type === 'video/mp4');
+    const imageCreatives = creatives.filter(c => c.mime_type !== 'video/mp4');
+    const hasVideo = videoCreatives.length > 0;
+
     const normalizedEntries = urls.map(u => {
       const raw      = typeof u === 'string' ? u : u.url;
       const fullPage = typeof u === 'object' ? !!u.fullPage : false;
@@ -37,17 +39,26 @@ export async function POST(request) {
       return { url: href, fullPage };
     });
 
-    // Process each URL
     const results = [];
     for (const entry of normalizedEntries) {
-      const result = await generateMockup(campaignId, entry.url, creatives, { fullPage: entry.fullPage });
+      let result;
+      if (hasVideo) {
+        result = await generateVideoMockup(
+          campaignId,
+          entry.url,
+          videoCreatives[0],
+          imageCreatives,
+          { recordingMode, durationSeconds: Number(durationSeconds), fullPage: entry.fullPage }
+        );
+      } else {
+        result = await generateMockup(campaignId, entry.url, imageCreatives, { fullPage: entry.fullPage });
+      }
       results.push(result);
     }
 
-    // Build overall summary
-    const totalSlots = results.reduce((sum, r) => sum + (r.matchReport?.totalSlotsDetected || 0), 0);
+    const totalSlots   = results.reduce((sum, r) => sum + (r.matchReport?.totalSlotsDetected || 0), 0);
     const totalMatched = results.reduce((sum, r) => sum + (r.matchReport?.totalMatched || 0), 0);
-    const totalErrors = results.filter(r => r.status === 'error').length;
+    const totalErrors  = results.filter(r => r.status === 'error').length;
 
     return NextResponse.json({
       campaignId,
