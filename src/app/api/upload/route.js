@@ -4,6 +4,27 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 
+// Lazy-loaded to avoid import-time issues
+function getVideoMetadata(filePath) {
+  return new Promise((resolve, reject) => {
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+    const ffmpeg = require('fluent-ffmpeg');
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+    ffmpeg.setFfprobePath(ffprobeInstaller.path);
+
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+      resolve({
+        width: videoStream?.width || 0,
+        height: videoStream?.height || 0,
+        duration: Math.round(metadata.format.duration || 0),
+      });
+    });
+  });
+}
+
 // We use the web API for file handling in Next.js App Router
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
@@ -45,17 +66,10 @@ export async function POST(request) {
       const buffer = Buffer.from(bytes);
       fs.writeFileSync(filepath, buffer);
 
-      // Detect dimensions using sharp
+      // Detect dimensions (and duration for video)
       let width = 0;
       let height = 0;
-      try {
-        const metadata = await sharp(buffer).metadata();
-        width = metadata.width || 0;
-        height = metadata.height || 0;
-      } catch (err) {
-        console.warn(`Could not detect dimensions for ${file.name}:`, err.message);
-        // Try to continue without dimensions
-      }
+      let durationSeconds = null;
 
       // Determine MIME type
       const mimeMap = {
@@ -65,13 +79,33 @@ export async function POST(request) {
         '.gif': 'image/gif',
         '.webp': 'image/webp',
         '.svg': 'image/svg+xml',
+        '.mp4': 'video/mp4',
       };
       const mimeType = mimeMap[ext] || file.type || 'image/png';
+
+      if (mimeType === 'video/mp4') {
+        try {
+          const meta = await getVideoMetadata(filepath);
+          width = meta.width;
+          height = meta.height;
+          durationSeconds = meta.duration || null;
+        } catch (err) {
+          console.warn(`Could not extract video metadata for ${file.name}:`, err.message);
+        }
+      } else {
+        try {
+          const metadata = await sharp(buffer).metadata();
+          width = metadata.width || 0;
+          height = metadata.height || 0;
+        } catch (err) {
+          console.warn(`Could not detect dimensions for ${file.name}:`, err.message);
+        }
+      }
 
       // Save to DB
       const creative = db.addCreative(
         id, campaignId, filename, file.name,
-        width, height, filepath, buffer.length, mimeType
+        width, height, filepath, buffer.length, mimeType, durationSeconds
       );
 
       uploaded.push(creative);

@@ -63,6 +63,44 @@ function buildDetectionScript() {
       });
     }
 
+    // ── 0. Video player slots (Tier 0 — highest priority) ──────────
+    // Detect native <video> elements and common video player wrappers.
+    // These are the injection targets for pre-roll video creatives.
+
+    // 0a. Native <video> elements ≥ 400×300
+    document.querySelectorAll('video').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width >= 400 && rect.height >= 300) {
+        addSlot(el, 'video-player');
+      }
+    });
+
+    // 0b. Video player wrapper class/id patterns
+    const videoPlayerPatterns = [
+      'jwplayer', 'jw-video', 'jw-wrapper', 'jw-container',
+      'video-js', 'vjs-tech', 'vjs-video-container', 'vjs-fluid',
+      'brightcove', 'bc-player', 'bmpui-video',
+      'flowplayer', 'kaltura-player', 'mews-video',
+    ];
+
+    document.querySelectorAll('div, section, figure').forEach(el => {
+      const idAndClass = `${el.id} ${el.className}`.toLowerCase();
+      for (const pattern of videoPlayerPatterns) {
+        if (idAndClass.includes(pattern)) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width >= 300 && rect.height >= 200) {
+            addSlot(el, 'video-player');
+          }
+          break;
+        }
+      }
+    });
+
+    // 0c. VAST/VPAID container attributes
+    document.querySelectorAll('[data-vast], [data-vpaid], [data-video-ad], [data-player]').forEach(el => {
+      addSlot(el, 'video-player');
+    });
+
     // ── 1. Google Publisher Tag (GPT) ───────────────────────────────
     document.querySelectorAll('[id^="div-gpt-ad"], [data-google-query-id]').forEach(el => {
       addSlot(el, 'gpt');
@@ -529,8 +567,22 @@ async function cleanPageForScreenshot(page) {
   }).catch(() => {});
 }
 
+/**
+ * Runs video-specific Tier 0 slot detection on a page.
+ * Returns only video player slots. Falls back to all slots if none found.
+ *
+ * @param {import('playwright').Page} page
+ * @returns {Promise<Array>} Detected video slots (or all slots as fallback)
+ */
+async function detectVideoSlots(page) {
+  const allSlots = await page.evaluate(buildDetectionScript());
+  const videoSlots = allSlots.filter(s => s.source === 'video-player');
+  return videoSlots.length > 0 ? videoSlots : allSlots;
+}
+
 module.exports = {
   detectAdSlots,
+  detectVideoSlots,
   injectCreative,
   dismissConsentBanners,
   cleanPageForScreenshot,

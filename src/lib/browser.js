@@ -128,6 +128,37 @@ async function createPage() {
   return { page, context };
 }
 
+/**
+ * Like createPage(), but with video recording enabled and without blocking mp4/webm.
+ * Used exclusively for video mockup generation.
+ *
+ * @param {string} videoDir - Directory where Playwright saves the .webm recording
+ * @returns {Promise<{page: import('playwright').Page, context: import('playwright').BrowserContext}>}
+ */
+async function createVideoPage(videoDir) {
+  const browser = await getBrowser();
+  const context = await browser.newContext({
+    ...CONTEXT_OPTIONS,
+    recordVideo: { dir: videoDir, size: { width: 1440, height: 900 } },
+  });
+
+  // Same consent pre-seeding as createPage()
+  await context.addInitScript(CONSENT_INIT_SCRIPT);
+  await context.addInitScript(SOURCEPOINT_PRESEED_SCRIPT);
+
+  // Block fonts only — do NOT block mp4/webm (we need the video creative to load)
+  await context.route('**/*.{woff,woff2,ttf,otf,eot}', route => route.abort());
+
+  // Block ad network scripts (same as createPage)
+  const AD_DOMAIN_RE = /doubleclick\.net|googlesyndication\.com|adsafeprotected\.com|amazon-adsystem\.com|pubmatic\.com|rubiconproject\.com|criteo\.com|outbrain\.com|taboola\.com|scorecardresearch\.com|chartbeat\.com|moatads\.com|adnxs\.com|safeframe\.|pagead\//i;
+  await context.route('**/*', route =>
+    AD_DOMAIN_RE.test(route.request().url()) ? route.abort() : route.continue()
+  );
+
+  const page = await context.newPage();
+  return { page, context };
+}
+
 async function closeBrowser() {
   if (_browser) {
     await _browser.close();
@@ -135,4 +166,4 @@ async function closeBrowser() {
   }
 }
 
-module.exports = { getBrowser, createPage, closeBrowser };
+module.exports = { getBrowser, createPage, createVideoPage, closeBrowser };
