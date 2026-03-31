@@ -29,14 +29,19 @@ export async function GET(request) {
       '.gif': 'image/gif',
       '.webp': 'image/webp',
       '.svg': 'image/svg+xml',
+      '.mp4': 'video/mp4',
     };
 
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': mimeMap[ext] || 'image/png',
-        'Cache-Control': 'public, max-age=86400',
-      },
-    });
+    const contentType = mimeMap[ext] || 'image/png';
+    const headers = {
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${path.basename(fullPath)}"`,
+      'Cache-Control': 'public, max-age=86400',
+    };
+    if (contentType === 'video/mp4') {
+      headers['Accept-Ranges'] = 'bytes';
+    }
+    return new NextResponse(buffer, { headers });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
