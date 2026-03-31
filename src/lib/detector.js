@@ -576,8 +576,7 @@ async function cleanPageForScreenshot(page) {
  */
 async function detectVideoSlots(page) {
   const allSlots = await page.evaluate(buildDetectionScript());
-  const videoSlots = allSlots.filter(s => s.source === 'video-player');
-  return videoSlots.length > 0 ? videoSlots : allSlots;
+  return allSlots.filter(s => s.source === 'video-player');
 }
 
 module.exports = {

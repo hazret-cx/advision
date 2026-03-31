@@ -76,7 +76,7 @@ export default function ScreenshotViewer({ results, campaign, onEdit }) {
             onMouseOver={e => e.currentTarget.style.background = '#4A1ECC'}
             onMouseOut={e => e.currentTarget.style.background = '#5C26FF'}
           >
-            <span>⬇️</span> Download PNG
+            <span>⬇️</span> {current.type === 'video' ? 'Download MP4' : 'Download PNG'}
           </a>
         </div>
       </div>
