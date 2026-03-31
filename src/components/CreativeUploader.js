@@ -236,7 +236,7 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
-        <input ref={inputRef} type="file" multiple accept="image/*" onChange={handleChange} className="hidden" />
+        <input ref={inputRef} type="file" multiple accept="image/*,video/mp4" onChange={handleChange} className="hidden" />
 
         {uploading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -250,7 +250,7 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
               Drag &amp; drop creative files here, or click to browse
             </div>
             <div style={{ fontSize: 12, color: '#7A7A85', marginTop: 8, fontFamily: 'var(--font-body)' }}>
-              Supports PNG, JPG, GIF, WebP — dimensions detected automatically
+              Supports PNG, JPG, GIF, WebP, MP4 — dimensions detected automatically
             </div>
           </div>
         )}
@@ -303,24 +303,41 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
                 onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)'}
                 onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}
               >
-                <div style={{ aspectRatio: '16/9', background: '#121218', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/creative-image?id=${c.filename}`}
-                    alt={c.original_name}
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<div style="color:#7A7A85;font-size:11px">Preview unavailable</div>';
-                    }}
-                  />
+                <div style={{ aspectRatio: '16/9', background: '#121218', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8, position: 'relative' }}>
+                  {c.mime_type === 'video/mp4' ? (
+                    <video
+                      src={`/api/creative-image?id=${c.filename}`}
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      muted
+                      preload="metadata"
+                      onMouseOver={e => e.currentTarget.play()}
+                      onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                    />
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={`/api/creative-image?id=${c.filename}`}
+                      alt={c.original_name}
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<div style="color:#7A7A85;font-size:11px">Preview unavailable</div>';
+                      }}
+                    />
+                  )}
                 </div>
                 <div style={{ padding: '10px 12px' }}>
+                  {c.mime_type === 'video/mp4' && (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#FF8C00', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'var(--font-body)' }}>
+                      Pre-Roll Video
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, fontWeight: 500, color: '#C8C8D0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
                     {c.original_name}
                   </div>
                   <div style={{ fontSize: 11, color: '#5C26FF', fontWeight: 600, marginTop: 4, fontFamily: 'var(--font-body)' }}>
-                    {c.width} × {c.height}
+                    {c.width > 0 && c.height > 0 ? `${c.width} × ${c.height}` : 'Video'}
+                    {c.duration_seconds ? ` · ${c.duration_seconds}s` : ''}
                   </div>
                 </div>
               </div>

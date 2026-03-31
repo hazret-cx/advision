@@ -10,8 +10,12 @@ const EXAMPLE_URLS = [
   'cnbc.com',
 ];
 
-export default function UrlInput({ onScrape, loading }) {
+export default function UrlInput({ onScrape, loading, creatives = [] }) {
   const [entries, setEntries] = useState([{ url: '', fullPage: false }]);
+
+  const hasVideoCreatives = creatives.some(c => c.mime_type === 'video/mp4');
+  const [recordingMode, setRecordingMode] = useState('fixed');
+  const [recordingDuration, setRecordingDuration] = useState(15);
 
   const addEntry    = useCallback(() => {
     if (entries.length < 10) setEntries(prev => [...prev, { url: '', fullPage: false }]);
@@ -27,8 +31,8 @@ export default function UrlInput({ onScrape, loading }) {
 
   const handleScrape = useCallback(() => {
     const valid = entries.filter(e => e.url.trim().length > 0);
-    if (valid.length > 0) onScrape(valid);
-  }, [entries, onScrape]);
+    if (valid.length > 0) onScrape(valid, { recordingMode, durationSeconds: recordingDuration });
+  }, [entries, onScrape, recordingMode, recordingDuration]);
 
   const validCount = entries.filter(e => e.url.trim().length > 0).length;
 
@@ -122,6 +126,66 @@ export default function UrlInput({ onScrape, loading }) {
           <span>↕</span>
           <span>Full page is enabled for {entries.filter(e => e.fullPage && e.url.trim()).length} URL{entries.filter(e => e.fullPage && e.url.trim()).length !== 1 ? 's' : ''}. Avoid on ad-heavy sites like GQ, Cosmopolitan or Vogue — use viewport only there.</span>
         </p>
+      )}
+
+      {/* ── Video recording duration (shown only when campaign has video creatives) ── */}
+      {hasVideoCreatives && (
+        <div style={{
+          marginBottom:  16,
+          padding:       '16px 20px',
+          background:    'rgba(255,140,0,0.06)',
+          border:        '1px solid rgba(255,140,0,0.2)',
+          borderRadius:  12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#FF8C00', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontFamily: 'var(--font-body)' }}>
+            Video Recording Duration
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            {['creative_length', 'fixed'].map(mode => (
+              <button
+                key={mode}
+                onClick={() => setRecordingMode(mode)}
+                style={{
+                  padding:      '7px 16px',
+                  borderRadius: 999,
+                  border:       recordingMode === mode ? '1px solid #FF8C00' : '1px solid rgba(255,255,255,0.12)',
+                  background:   recordingMode === mode ? 'rgba(255,140,0,0.15)' : 'rgba(255,255,255,0.04)',
+                  color:        recordingMode === mode ? '#FF8C00' : '#7A7A85',
+                  fontFamily:   'var(--font-body)',
+                  fontSize:     12,
+                  fontWeight:   600,
+                  cursor:       'pointer',
+                  transition:   'all 0.15s',
+                }}
+              >
+                {mode === 'creative_length' ? 'Creative length' : 'Fixed duration'}
+              </button>
+            ))}
+            {recordingMode === 'fixed' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={recordingDuration}
+                  onChange={e => setRecordingDuration(Math.min(120, Math.max(5, Number(e.target.value))))}
+                  style={{
+                    width:        64,
+                    padding:      '7px 12px',
+                    background:   'rgba(255,255,255,0.05)',
+                    border:       '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    color:        '#fff',
+                    fontFamily:   'var(--font-body)',
+                    fontSize:     13,
+                    outline:      'none',
+                  }}
+                />
+                <span style={{ fontSize: 12, color: '#7A7A85', fontFamily: 'var(--font-body)' }}>seconds (5–120)</span>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Add URL ── */}
