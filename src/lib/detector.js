@@ -104,7 +104,14 @@ function buildDetectionScript() {
     // 0d. Outstream video placement containers (e.g. investing.com STN provider)
     // These containers are empty (0×0) until the ad script fires, so we force
     // standard outstream dimensions (640×360) when the element has no size yet.
-    document.querySelectorAll('[data-placement*="video"], [data-placement*="Video"]').forEach(el => {
+    const outstreamSelectors = [
+      '[data-placement*="video"]', '[data-placement*="Video"]',
+      '[data-ad-placement*="video"]', '[data-slot*="video"]',
+      '[data-vid]', '[data-video-placement]',
+      '[class*="stn-player"]', '[class*="outstream"]', '[class*="out-stream"]',
+      '[id*="stn-player"]', '[id*="outstream"]',
+    ].join(',');
+    document.querySelectorAll(outstreamSelectors).forEach(el => {
       const rect = el.getBoundingClientRect();
       const w = rect.width > 0 ? Math.round(rect.width) : 640;
       const h = rect.height > 0 ? Math.round(rect.height) : 360;
@@ -613,6 +620,7 @@ module.exports = {
   injectCreative,
   dismissConsentBanners,
   cleanPageForScreenshot,
+  autoScroll,
   isIabSize,
   IAB_SIZES,
 };

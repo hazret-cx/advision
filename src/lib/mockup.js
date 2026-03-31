@@ -10,7 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { createPage, createVideoPage } = require('./browser');
-const { detectAdSlots, detectVideoSlots, cleanPageForScreenshot } = require('./detector');
+const { detectAdSlots, detectVideoSlots, cleanPageForScreenshot, autoScroll } = require('./detector');
 const { matchSlots } = require('./matcher');
 const db = require('./db');
 
@@ -273,6 +273,10 @@ async function generateVideoMockup(campaignId, url, videoCreative, imageCreative
 
     if (pageCrashed) throw new Error(`Page crashed loading ${url}`);
 
+    // Scroll to trigger lazy-loaded content (outstream containers appear mid-article)
+    await autoScroll(page);
+    await page.waitForTimeout(1000);
+
     // Detect video slots
     const slots = await detectVideoSlots(page);
 
@@ -298,6 +302,27 @@ async function generateVideoMockup(campaignId, url, videoCreative, imageCreative
     // Clean page overlays before injection
     await cleanPageForScreenshot(page);
 
+    // Scroll the detected slot into view so it's visible in the recording,
+    // then re-measure viewport-relative coords for the fixed overlay.
+    const viewportCoords = await page.evaluate(({ selector, fallbackX, fallbackY, width, height }) => {
+      let el = null;
+      try { el = document.querySelector(selector); } catch {}
+
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'center' });
+        const r = el.getBoundingClientRect();
+        return { x: r.left, y: r.top, width: r.width || width, height: r.height || height };
+      }
+
+      // Fallback: element gone by injection time — use original page coords minus current scroll
+      return {
+        x: fallbackX - window.scrollX,
+        y: fallbackY - window.scrollY,
+        width,
+        height,
+      };
+    }, { selector: slot.selector, fallbackX: slot.x, fallbackY: slot.y, width: slot.width, height: slot.height });
+
     // Inject the video creative
     await page.evaluate(({ x, y, width, height, src }) => {
       const video = document.createElement('video');
@@ -320,7 +345,7 @@ async function generateVideoMockup(campaignId, url, videoCreative, imageCreative
       video.controls = false;
       document.body.appendChild(video);
       video.play().catch(() => {});
-    }, { x: slot.x, y: slot.y, width: slot.width, height: slot.height, src: creativeUrl });
+    }, { x: viewportCoords.x, y: viewportCoords.y, width: viewportCoords.width, height: viewportCoords.height, src: creativeUrl });
 
     // Wait for video to load before recording meaningfully
     await page.waitForTimeout(500);
