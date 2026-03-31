@@ -22,15 +22,51 @@ export async function GET(request) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    const buffer = fs.readFileSync(fullPath);
+    const stat = fs.statSync(fullPath);
+    const fileSize = stat.size;
+    const rangeHeader = request.headers.get('range');
 
+    if (rangeHeader) {
+      // Parse Range: bytes=start-end
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize || end >= fileSize) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${fileSize}` },
+        });
+      }
+
+      const chunkSize = end - start + 1;
+      const buffer = Buffer.alloc(chunkSize);
+      const fd = fs.openSync(fullPath, 'r');
+      fs.readSync(fd, buffer, 0, chunkSize, start);
+      fs.closeSync(fd);
+
+      return new NextResponse(buffer, {
+        status: 206,
+        headers: {
+          'Content-Type': 'video/mp4',
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(chunkSize),
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+
+    // No Range header — serve the full file
+    const buffer = fs.readFileSync(fullPath);
     return new NextResponse(buffer, {
+      status: 200,
       headers: {
         'Content-Type': 'video/mp4',
         'Content-Disposition': `inline; filename="${path.basename(fullPath)}"`,
-        'Cache-Control': 'public, max-age=3600',
         'Accept-Ranges': 'bytes',
-        'Content-Length': String(buffer.length),
+        'Content-Length': String(fileSize),
+        'Cache-Control': 'public, max-age=3600',
       },
     });
   } catch (err) {
