@@ -37,14 +37,19 @@ export default function Home() {
     if (creatives.length > 0) setStep(3);
   }, [creatives]);
 
-  const handleScrape = useCallback(async (entries) => {
+  const handleScrape = useCallback(async (entries, videoOptions = {}) => {
     setLoading(true);
     setError(null);
     try {
       const res  = await fetch('/api/scrape', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ campaignId: campaign.id, urls: entries }),
+        body:    JSON.stringify({
+          campaignId:      campaign.id,
+          urls:            entries,
+          recordingMode:   videoOptions.recordingMode || 'fixed',
+          durationSeconds: videoOptions.durationSeconds || 15,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Scrape failed');
@@ -203,7 +208,7 @@ export default function Home() {
           </div>
         )}
 
-        {step === 3 && campaign && <UrlInput onScrape={handleScrape} loading={loading} />}
+        {step === 3 && campaign && <UrlInput onScrape={handleScrape} loading={loading} creatives={creatives} />}
 
         {step === 4 && results && (
           <div>

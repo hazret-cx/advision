@@ -27,7 +27,7 @@ export default function ScreenshotViewer({ results, campaign, onEdit }) {
           Screenshots
         </h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          {onEdit && (
+          {onEdit && current.type !== 'video' && (
             <button
               onClick={() => onEdit(current)}
               style={{
@@ -52,7 +52,9 @@ export default function ScreenshotViewer({ results, campaign, onEdit }) {
             </button>
           )}
           <a
-            href={`/api/screenshot?path=${encodeURIComponent(current.screenshotPath)}`}
+            href={current.type === 'video'
+              ? `/api/video?path=${encodeURIComponent(current.screenshotPath)}`
+              : `/api/screenshot?path=${encodeURIComponent(current.screenshotPath)}`}
             download
             style={{
               padding:        '8px 16px',
@@ -131,18 +133,34 @@ export default function ScreenshotViewer({ results, campaign, onEdit }) {
           <span style={{ fontSize: 11, color: '#7A7A85', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
             {current.url}
           </span>
-          <span style={{ fontSize: 11, color: '#7A7A85', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
-            {current.matchReport?.totalMatched || 0} creative(s) injected
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {current.type === 'video' && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#FF8C00', background: 'rgba(255,140,0,0.15)', border: '1px solid rgba(255,140,0,0.3)', borderRadius: 4, padding: '2px 6px', fontFamily: 'var(--font-body)', letterSpacing: '0.06em' }}>
+                VIDEO MOCKUP
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: '#7A7A85', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
+              {current.matchReport?.totalMatched || 0} creative(s) injected
+            </span>
+          </div>
         </div>
 
         <div style={{ maxHeight: 700, overflowY: 'auto' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/screenshot?path=${encodeURIComponent(current.screenshotPath)}`}
-            alt={`Mockup for ${current.domain}`}
-            style={{ width: '100%', display: 'block' }}
-          />
+          {current.type === 'video' ? (
+            <video
+              key={current.screenshotPath}
+              controls
+              style={{ width: '100%', display: 'block', background: '#000' }}
+              src={`/api/video?path=${encodeURIComponent(current.screenshotPath)}`}
+            />
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={`/api/screenshot?path=${encodeURIComponent(current.screenshotPath)}`}
+              alt={`Mockup for ${current.domain}`}
+              style={{ width: '100%', display: 'block' }}
+            />
+          )}
         </div>
       </div>
 
