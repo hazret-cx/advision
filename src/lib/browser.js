@@ -101,6 +101,31 @@ const CONSENT_INIT_SCRIPT = `
   })();
 `;
 
+/**
+ * Create a browser context with consent pre-seeding applied.
+ * Exported so callers can apply preflight state before creating a page.
+ *
+ * @param {object} extraOptions - Additional Playwright context options
+ * @returns {Promise<import('playwright').BrowserContext>}
+ */
+async function createContext(extraOptions = {}) {
+  const browser = await getBrowser();
+  const context = await browser.newContext({ ...CONTEXT_OPTIONS, ...extraOptions });
+
+  await context.addInitScript(CONSENT_INIT_SCRIPT);
+  await context.addInitScript(SOURCEPOINT_PRESEED_SCRIPT);
+
+  await context.route('**/*.{mp4,webm,ogg,mp3,wav}', route => route.abort());
+  await context.route('**/*.{woff,woff2,ttf,otf,eot}', route => route.abort());
+
+  const AD_DOMAIN_RE = /doubleclick\.net|googlesyndication\.com|adsafeprotected\.com|amazon-adsystem\.com|pubmatic\.com|rubiconproject\.com|criteo\.com|outbrain\.com|taboola\.com|scorecardresearch\.com|chartbeat\.com|moatads\.com|adnxs\.com|safeframe\.|pagead\//i;
+  await context.route('**/*', route =>
+    AD_DOMAIN_RE.test(route.request().url()) ? route.abort() : route.continue()
+  );
+
+  return context;
+}
+
 async function createPage() {
   const browser = await getBrowser();
   const context = await browser.newContext(CONTEXT_OPTIONS);
@@ -166,4 +191,4 @@ async function closeBrowser() {
   }
 }
 
-module.exports = { getBrowser, createPage, createVideoPage, closeBrowser };
+module.exports = { getBrowser, createContext, createPage, createVideoPage, closeBrowser };

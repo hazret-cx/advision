@@ -9,7 +9,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
-const { createPage, createVideoPage } = require('./browser');
+const { createPage, createContext, createVideoPage } = require('./browser');
+const { runPreflight, applyPreflightState } = require('./preflight');
 const { detectAdSlots, detectVideoSlots, cleanPageForScreenshot, autoScroll } = require('./detector');
 const { matchSlots } = require('./matcher');
 const db = require('./db');
@@ -77,9 +78,21 @@ async function generateMockup(campaignId, url, creatives, options = {}) {
 
   let page, context;
 
+  // --- Preflight: dismiss CMP via browser-harness before Playwright loads ---
+  let preflightResult = null;
   try {
-    // 1. Launch browser
-    ({ page, context } = await createPage());
+    preflightResult = await runPreflight(url);
+  } catch (e) {
+    console.warn('[preflight] Error (non-fatal):', e.message);
+  }
+
+  try {
+    // 1. Launch browser — use createContext so we can apply preflight state
+    context = await createContext();
+    if (preflightResult) {
+      await applyPreflightState(context, preflightResult);
+    }
+    page = await context.newPage();
 
     // Track page crashes so we can bail out cleanly instead of hitting
     // "Target page, context or browser has been closed" mid-pipeline.
@@ -173,6 +186,11 @@ async function generateMockup(campaignId, url, creatives, options = {}) {
       matchReport,
       screenshotPath,
       status: 'completed',
+      preflight: preflightResult ? {
+        dismissed: preflightResult.dismissed,
+        cookiesApplied: preflightResult.cookies?.length || 0,
+        localStorageApplied: Object.keys(preflightResult.localStorage || {}).length,
+      } : { skipped: true },
     };
 
   } catch (err) {
