@@ -528,6 +528,97 @@ async function injectCreative(page, slot, imageDataUrl) {
 }
 
 /**
+ * Inject an HTML5 banner creative into a specific ad slot using an iframe.
+ * The banner is served via /api/creative-html/<id>/index.html so all its
+ * relative asset paths (images/, JS, CSS) resolve correctly.
+ *
+ * @param {import('playwright').Page} page
+ * @param {Object} slot - Detected slot object
+ * @param {string} creativeId - UUID of the HTML creative (folder name in uploads/)
+ * @param {number} creativeWidth  - Banner width in px
+ * @param {number} creativeHeight - Banner height in px
+ * @param {string} baseUrl - Next.js server base URL (e.g. http://localhost:3000)
+ * @returns {Promise<boolean>}
+ */
+async function injectHtmlCreative(page, slot, creativeId, creativeWidth, creativeHeight, baseUrl = 'http://localhost:3000') {
+  const iframeSrc = `${baseUrl}/api/creative-html/${creativeId}/index.html`;
+
+  return page.evaluate(({ selector, slotWidth, slotHeight, x, y, iframeSrc, creativeWidth, creativeHeight }) => {
+    // Find the slot element
+    let el = null;
+    try { el = document.querySelector(selector); } catch {}
+
+    if (!el) {
+      // Fallback: find by position + size
+      const candidates = document.querySelectorAll('div, iframe, section');
+      for (const c of candidates) {
+        const rect = c.getBoundingClientRect();
+        const cx = Math.round(rect.x + window.scrollX);
+        const cy = Math.round(rect.y + window.scrollY);
+        if (Math.abs(cx - x) < 5 && Math.abs(cy - y) < 5 &&
+            Math.abs(Math.round(rect.width) - slotWidth) < 5 &&
+            Math.abs(Math.round(rect.height) - slotHeight) < 5) {
+          el = c;
+          break;
+        }
+      }
+    }
+
+    if (!el) return false;
+
+    // Lock the slot element dimensions
+    el.innerHTML = '';
+    el.style.width = slotWidth + 'px';
+    el.style.height = slotHeight + 'px';
+    el.style.minWidth = slotWidth + 'px';
+    el.style.minHeight = slotHeight + 'px';
+    el.style.overflow = 'hidden';
+    el.style.position = 'relative';
+    el.style.display = 'block';
+    el.style.visibility = 'visible';
+    el.style.opacity = '1';
+
+    // Outer container — centres the banner if creative size != slot size
+    const container = document.createElement('div');
+    container.style.cssText = [
+      'width: 100%',
+      'height: 100%',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'position: relative',
+      'z-index: 999999',
+    ].join(';');
+
+    // The iframe — sized to the actual banner dimensions
+    const iframe = document.createElement('iframe');
+    iframe.src = iframeSrc;
+    iframe.setAttribute('scrolling', 'no');
+    iframe.setAttribute('frameborder', '0');
+    iframe.style.cssText = [
+      `width: ${creativeWidth}px`,
+      `height: ${creativeHeight}px`,
+      'border: none',
+      'display: block',
+      'pointer-events: none',  // prevents click-through on publisher content during capture
+    ].join(';');
+
+    container.appendChild(iframe);
+    el.appendChild(container);
+    return true;
+  }, {
+    selector: slot.selector,
+    slotWidth: slot.width,
+    slotHeight: slot.height,
+    x: slot.x,
+    y: slot.y,
+    iframeSrc,
+    creativeWidth,
+    creativeHeight,
+  });
+}
+
+/**
  * Aggressively hide CMP overlays, subscription walls, and scroll locks
  * from the live page DOM before taking a screenshot.
  * Called after ad-slot detection, right before captureScreenshot().
@@ -618,6 +709,7 @@ module.exports = {
   detectAdSlots,
   detectVideoSlots,
   injectCreative,
+  injectHtmlCreative,
   dismissConsentBanners,
   cleanPageForScreenshot,
   autoScroll,

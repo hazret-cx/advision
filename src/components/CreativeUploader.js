@@ -23,6 +23,7 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
   const [driveLoading, setDriveLoading]   = useState(false);
   const [dragActive, setDragActive]       = useState(false);
   const inputRef   = useRef(null);
+  const htmlInputRef = useRef(null);
   const tokenRef   = useRef(null);
   const gapiReady  = useRef(false);
 
@@ -47,6 +48,38 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
       if (data.uploaded) onUpload(data.uploaded);
     } catch (err) {
       console.error('Upload error:', err);
+    } finally {
+      setUploading(false);
+    }
+  }, [campaignId, onUpload]);
+
+  // Handle HTML5 banner folder upload (webkitdirectory)
+  const handleHtmlFolder = useCallback(async (files) => {
+    if (!files || files.length === 0) return;
+    // Verify there is an index.html in the selection
+    const hasIndex = Array.from(files).some(f => {
+      const parts = f.webkitRelativePath.split('/');
+      return parts[parts.length - 1] === 'index.html';
+    });
+    if (!hasIndex) {
+      alert('No index.html found in the selected folder. Please select the banner folder directly (e.g. 2026_Choose_LIC_300x600_UK).');
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('campaignId', campaignId);
+      for (const file of files) {
+        formData.append('files', file);
+        formData.append('relativePaths', file.webkitRelativePath);
+      }
+      const res  = await fetch('/api/upload-html', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTML upload failed');
+      if (data.uploaded) onUpload(data.uploaded);
+    } catch (err) {
+      console.error('HTML upload error:', err);
+      alert('HTML banner upload failed: ' + err.message);
     } finally {
       setUploading(false);
     }
@@ -186,6 +219,31 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
           <span>Browse files</span>
         </button>
 
+        {/* HTML5 Banner folder picker */}
+        <button
+          onClick={() => htmlInputRef.current?.click()}
+          disabled={uploading || driveLoading}
+          style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          8,
+            padding:      '9px 18px',
+            background:   'rgba(255,160,0,0.08)',
+            border:       '1px solid rgba(255,160,0,0.3)',
+            borderRadius: 999,
+            color:        uploading || driveLoading ? '#7A7A85' : '#FFA000',
+            fontSize:     13,
+            fontFamily:   'var(--font-body)',
+            cursor:       uploading || driveLoading ? 'not-allowed' : 'pointer',
+            transition:   'all 0.2s',
+          }}
+          onMouseOver={e => { if (!uploading && !driveLoading) e.currentTarget.style.background = 'rgba(255,160,0,0.16)'; }}
+          onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,160,0,0.08)'; }}
+        >
+          <span style={{ fontSize: 15 }}>🌐</span>
+          <span>HTML5 Banner</span>
+        </button>
+
         <button
           onClick={openDrivePicker}
           disabled={uploading || driveLoading}
@@ -237,6 +295,17 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
         onClick={() => inputRef.current?.click()}
       >
         <input ref={inputRef} type="file" multiple accept="image/*,video/mp4" onChange={handleChange} className="hidden" />
+        <input
+          ref={htmlInputRef}
+          type="file"
+          // webkitdirectory triggers a folder picker — browser sends all files with webkitRelativePath
+          // eslint-disable-next-line react/no-unknown-property
+          webkitdirectory=""
+          multiple
+          onChange={(e) => { if (e.target.files) { handleHtmlFolder(e.target.files); e.target.value = ''; } }}
+          className="hidden"
+          style={{ display: 'none' }}
+        />
 
         {uploading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -250,7 +319,7 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
               Drag &amp; drop creative files here, or click to browse
             </div>
             <div style={{ fontSize: 12, color: '#7A7A85', marginTop: 8, fontFamily: 'var(--font-body)' }}>
-              Supports PNG, JPG, GIF, WebP, MP4 — dimensions detected automatically
+              Supports PNG, JPG, GIF, WebP, MP4, HTML5 Banners — dimensions detected automatically
             </div>
           </div>
         )}
@@ -313,6 +382,20 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
                       onMouseOver={e => e.currentTarget.play()}
                       onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                     />
+                  ) : c.mime_type === 'text/html' ? (
+                    <iframe
+                      src={`/api/creative-html/${c.filename}/index.html`}
+                      scrolling="no"
+                      style={{
+                        width: c.width > 0 ? Math.min(c.width, 160) : 160,
+                        height: c.height > 0 ? Math.min(c.height, 120) : 120,
+                        border: 'none',
+                        transform: c.width > 160 ? `scale(${160 / c.width})` : undefined,
+                        transformOrigin: 'top left',
+                        pointerEvents: 'none',
+                        display: 'block',
+                      }}
+                    />
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -330,6 +413,11 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
                   {c.mime_type === 'video/mp4' && (
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#FF8C00', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'var(--font-body)' }}>
                       Pre-Roll Video
+                    </div>
+                  )}
+                  {c.mime_type === 'text/html' && (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#FFA000', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'var(--font-body)' }}>
+                      HTML5 Banner
                     </div>
                   )}
                   <div style={{ fontSize: 11, fontWeight: 500, color: '#C8C8D0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>

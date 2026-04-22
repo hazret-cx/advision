@@ -11,7 +11,7 @@ const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { createPage, createContext, createVideoPage } = require('./browser');
 const { runPreflight, applyPreflightState } = require('./preflight');
-const { detectAdSlots, detectVideoSlots, cleanPageForScreenshot, autoScroll } = require('./detector');
+const { detectAdSlots, detectVideoSlots, injectHtmlCreative, cleanPageForScreenshot, autoScroll } = require('./detector');
 const { matchSlots } = require('./matcher');
 const db = require('./db');
 
@@ -162,6 +162,30 @@ async function generateMockup(campaignId, url, creatives, options = {}) {
     }
 
     if (pageCrashed) throw new Error(`Page crashed while processing ${url}`);
+
+    // 5a. Inject HTML5 banner creatives live into matched slots (Phase 2)
+    // HTML creatives can't be composited by sharp post-hoc — they must be
+    // rendered live in Playwright via an iframe before we take the screenshot.
+    const htmlMatches = matchReport.matched.filter(m => m.creative.mime_type === 'text/html');
+    if (htmlMatches.length > 0) {
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000';
+      for (const match of htmlMatches) {
+        try {
+          await injectHtmlCreative(
+            page,
+            match.slot,
+            match.creative.filename,   // UUID = folder name in uploads/
+            match.creative.width,
+            match.creative.height,
+            baseUrl
+          );
+        } catch (e) {
+          console.warn(`[HTML Creative] Injection failed for slot ${match.slot.selector}:`, e.message);
+        }
+      }
+      // Give iframes time to load and paint before screenshot
+      await page.waitForTimeout(1200);
+    }
 
     // 5. Strip any remaining overlays / paywalls before screenshotting
     await cleanPageForScreenshot(page);
