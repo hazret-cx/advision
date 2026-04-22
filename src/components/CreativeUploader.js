@@ -23,7 +23,6 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
   const [driveLoading, setDriveLoading]   = useState(false);
   const [dragActive, setDragActive]       = useState(false);
   const inputRef   = useRef(null);
-  const htmlInputRef = useRef(null);
   const tokenRef   = useRef(null);
   const gapiReady  = useRef(false);
 
@@ -35,14 +34,21 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
     }).catch(() => {});
   }, []);
 
-  // webkitdirectory is not a recognised React prop — set it imperatively
-  useEffect(() => {
-    if (htmlInputRef.current) {
-      htmlInputRef.current.setAttribute('webkitdirectory', '');
-      htmlInputRef.current.setAttribute('directory', ''); // Firefox fallback
-      htmlInputRef.current.setAttribute('mozdirectory', ''); // older FF
-    }
-  }, []);
+  // webkitdirectory is not a recognised React prop — create input programmatically
+  // so React never strips the attribute. Called directly from the button onClick.
+  const openHtmlFolderPicker = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.onchange = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleHtmlFolder(e.target.files);
+      }
+    };
+    input.click();
+  }, [handleHtmlFolder]);
 
   const handleFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
@@ -230,7 +236,7 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
 
         {/* HTML5 Banner folder picker */}
         <button
-          onClick={() => htmlInputRef.current?.click()}
+          onClick={openHtmlFolderPicker}
           disabled={uploading || driveLoading}
           style={{
             display:      'flex',
@@ -304,14 +310,6 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
         onClick={() => inputRef.current?.click()}
       >
         <input ref={inputRef} type="file" multiple accept="image/*,video/mp4" onChange={handleChange} className="hidden" />
-        <input
-          ref={htmlInputRef}
-          type="file"
-          multiple
-          onChange={(e) => { if (e.target.files) { handleHtmlFolder(e.target.files); e.target.value = ''; } }}
-          className="hidden"
-          style={{ display: 'none' }}
-        />
 
         {uploading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
