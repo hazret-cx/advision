@@ -35,6 +35,15 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
     }).catch(() => {});
   }, []);
 
+  // webkitdirectory is not a recognised React prop — set it imperatively
+  useEffect(() => {
+    if (htmlInputRef.current) {
+      htmlInputRef.current.setAttribute('webkitdirectory', '');
+      htmlInputRef.current.setAttribute('directory', ''); // Firefox fallback
+      htmlInputRef.current.setAttribute('mozdirectory', ''); // older FF
+    }
+  }, []);
+
   const handleFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
     setUploading(true);
@@ -298,9 +307,6 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
         <input
           ref={htmlInputRef}
           type="file"
-          // webkitdirectory triggers a folder picker — browser sends all files with webkitRelativePath
-          // eslint-disable-next-line react/no-unknown-property
-          webkitdirectory=""
           multiple
           onChange={(e) => { if (e.target.files) { handleHtmlFolder(e.target.files); e.target.value = ''; } }}
           className="hidden"
