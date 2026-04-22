@@ -34,22 +34,6 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
     }).catch(() => {});
   }, []);
 
-  // webkitdirectory is not a recognised React prop — create input programmatically
-  // so React never strips the attribute. Called directly from the button onClick.
-  const openHtmlFolderPicker = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
-    input.onchange = (e) => {
-      if (e.target.files && e.target.files.length > 0) {
-        handleHtmlFolder(e.target.files);
-      }
-    };
-    input.click();
-  }, [handleHtmlFolder]);
-
   const handleFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
     setUploading(true);
@@ -99,6 +83,23 @@ export default function CreativeUploader({ campaignId, creatives, onUpload }) {
       setUploading(false);
     }
   }, [campaignId, onUpload]);
+
+  // webkitdirectory is not a recognised React prop — create input programmatically
+  // so React never strips the attribute. Called directly from the button onClick.
+  // Must be defined AFTER handleHtmlFolder to avoid temporal dead zone ReferenceError.
+  const openHtmlFolderPicker = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.onchange = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleHtmlFolder(e.target.files);
+      }
+    };
+    input.click();
+  }, [handleHtmlFolder]);
 
   const handleDrag = useCallback((e) => {
     e.preventDefault();
